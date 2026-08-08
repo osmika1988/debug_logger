@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>硬體 Debug Logger</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel-2: #0d1117;
+      --line: #30363d;
+      --muted: #8b949e;
+      --text: #c9d1d9;
+      --strong: #f0f6fc;
+      --green: #238636;
+      --blue: #1f6feb;
+      --red: #ff7b72;
+      --orange: #ffa657;
+    }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    #app { max-width: 1280px; margin: 0 auto; padding: 20px; }
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 16px; margin-bottom: 20px; padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .logo {
+      width: 40px; height: 40px; background: var(--green);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex: 0 0 auto;
+    }
+    h1 { color: var(--strong); font-size: 24px; font-weight: 650; }
+    .header p { margin-top: 4px; color: var(--muted); font-size: 13px; }
+    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .btn, .btn-primary, .btn-blue, .icon-btn {
+      border: 1px solid var(--line); color: var(--text); cursor: pointer;
+      border-radius: 6px; transition: 0.18s; font-size: 13px;
+      background: #21262d; min-height: 34px;
+    }
+    .btn { padding: 8px 12px; }
+    .btn:hover, .icon-btn:hover { background: #30363d; }
+    .btn-primary { background: var(--green); border-color: var(--green); color: #fff; padding: 8px 14px; font-weight: 600; }
+    .btn-primary:hover { background: #2ea043; }
+    .btn-blue { background: var(--blue); border-color: var(--blue); color: #fff; padding: 8px 14px; font-weight: 600; }
+    .btn-blue:hover { background: #388bfd; }
+    .icon-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+    .unsaved { color: var(--orange); font-size: 12px; display: none; }
+    .main-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
+    .sidebar { min-width: 0; }
+    .content { min-width: 0; }
+    .card, .empty-state, .log-card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    }
+    .card { padding: 14px; margin-bottom: 14px; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .card h3, .card-header h3 { color: var(--strong); font-size: 14px; font-weight: 650; }
+    .list-item {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      padding: 10px 10px; margin-bottom: 6px; border-radius: 7px;
+      background: var(--panel-2); border: 1px solid #21262d; cursor: pointer;
+    }
+    .list-item:hover { border-color: #484f58; }
+    .list-item.active-proj { background: #1f6feb22; border-color: var(--blue); }
+    .list-item.active-ver { background: #23863622; border-color: var(--green); }
+    .list-item-info { flex: 1; min-width: 0; }
+    .list-item-title { color: var(--strong); font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .list-item-sub { color: var(--muted); font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-actions { display: flex; gap: 4px; flex: 0 0 auto; }
+    .danger { color: var(--red); }
+    .search-input, select, input, textarea {
+      width: 100%; padding: 9px 10px; background: var(--panel-2);
+      border: 1px solid var(--line); border-radius: 6px; color: var(--text);
+      font-size: 14px; outline: none;
+    }
+    textarea { resize: vertical; }
+    .search-input:focus, select:focus, input:focus, textarea:focus { border-color: #58a6ff; }
+    .tag-filters, .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .tag-filter, .chip {
+      padding: 4px 9px; background: #21262d; border: 1px solid var(--line);
+      border-radius: 999px; font-size: 11px; cursor: pointer;
+    }
+    .tag-filter.active { background: #30363d; border-color: #58a6ff; }
+    .empty-state { padding: 56px 28px; text-align: center; }
+    .empty-state .icon { font-size: 42px; margin-bottom: 12px; }
+    .empty-state h2 { color: var(--strong); font-size: 20px; margin-bottom: 8px; }
+    .empty-state p { color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .view-head {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+      margin-bottom: 16px;
+    }
+    .view-head h2 { color: var(--strong); font-size: 20px; }
+    .view-head p { color: var(--muted); margin-top: 4px; font-size: 13px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .stat-value { color: var(--strong); font-size: 22px; font-weight: 700; }
+    .stat-label { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .timeline { position: relative; padding-left: 28px; }
+    .timeline::before { content: ""; position: absolute; left: 9px; top: 0; bottom: 0; width: 2px; background: var(--line); }
+    .timeline-item { position: relative; margin-bottom: 18px; }
+    .timeline-dot { position: absolute; left: -24px; top: 12px; width: 12px; height: 12px; border-radius: 50%; background: #58a6ff; border: 3px solid var(--bg); }
+    .log-card { padding: 16px; }
+    .log-card:hover { border-color: #58a6ff; }
+    .log-card.is-collapsed { cursor: zoom-in; }
+    .log-card.is-expanded { cursor: zoom-out; }
+    .log-extra {
+      display: none; margin-top: 12px; padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .log-extra.open { display: block; }
+    .log-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .log-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .log-title { color: var(--strong); font-size: 16px; font-weight: 650; }
+    .log-meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .log-section { margin-top: 12px; }
+    .log-section-label { font-size: 11px; margin-bottom: 5px; font-weight: 650; color: var(--muted); }
+    .log-section-content { font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .log-box { background: var(--panel-2); border-radius: 7px; padding: 10px; }
+    .log-box-green { background: #23863611; border-left: 3px solid var(--green); border-radius: 7px; padding: 10px; }
+    .tag, .status, .severity {
+      display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 9px;
+      font-size: 11px; border: 1px solid currentColor;
+    }
+    .attachment-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .attachment {
+      color: #79c0ff; border: 1px solid #30363d; background: #0d1117;
+      padding: 6px 8px; border-radius: 6px; font-size: 12px; text-decoration: none;
+    }
+    .attachment-card {
+      width: 150px; border: 1px solid var(--line); border-radius: 7px;
+      background: var(--panel-2); overflow: hidden;
+    }
+    .attachment-card img {
+      display: block; width: 100%; height: 96px; object-fit: cover;
+      background: #010409;
+    }
+    .attachment-card-footer {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      padding: 6px 7px; min-height: 34px;
+    }
+    .attachment-name {
+      color: #79c0ff; font-size: 12px; text-decoration: none;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+    }
+    .attachment-delete {
+      width: 24px; height: 24px; flex: 0 0 auto;
+      border: 1px solid #30363d; border-radius: 5px; background: #21262d;
+      color: var(--red); cursor: pointer;
+    }
+    .attachment-delete:hover { background: #ff7b7222; }
+    .existing-attachments { margin-top: 8px; }
+    .image-lightbox {
+      display: none; position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,0.86); align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .image-lightbox.active { display: flex; }
+    .image-lightbox img {
+      max-width: min(1100px, 94vw); max-height: 86vh; object-fit: contain;
+      border: 1px solid var(--line); border-radius: 8px; background: #010409;
+    }
+    .lightbox-close {
+      position: fixed; top: 18px; right: 18px; width: 36px; height: 36px;
+      border: 1px solid var(--line); border-radius: 6px; background: #21262d;
+      color: var(--strong); cursor: pointer; font-size: 22px; line-height: 1;
+    }
+    .lightbox-caption {
+      position: fixed; left: 24px; right: 24px; bottom: 18px;
+      color: var(--text); text-align: center; font-size: 13px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+      z-index: 1000; align-items: center; justify-content: center; padding: 18px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+      padding: 22px; width: 560px; max-width: 100%; max-height: 92vh; overflow-y: auto;
+    }
+    .modal.wide { width: 720px; }
+    .modal h3 { color: var(--strong); font-size: 18px; margin-bottom: 18px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
+    .checkbox-group label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .helper { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    @media (max-width: 860px) {
+      #app { padding: 14px; }
+      .header, .view-head { align-items: stretch; flex-direction: column; }
+      .toolbar { justify-content: flex-start; }
+      .main-layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .sidebar.open { display: block; }
+      #toggleSidebarBtn { display: inline-flex !important; }
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+    @media (min-width: 861px) {
+      #toggleSidebarBtn { display: none !important; }
+    }
+    .draft-banner {
+      display: none; align-items: center; justify-content: space-between; gap: 12px;
+      background: #1f6feb1a; border: 1px solid var(--blue); border-radius: 8px;
+      padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: var(--text);
+    }
+    .draft-banner.show { display: flex; }
+    .draft-banner .actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .inline-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+    .inline-check input { width: auto; }
+    .tag-manage-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .tag-manage-row { display: flex; align-items: center; gap: 8px; }
+    .tag-manage-row input[type="text"] { flex: 1; }
+    .tag-manage-row input[type="color"] { width: 40px; height: 34px; padding: 2px; cursor: pointer; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; }
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+    .compare-col h4 { color: var(--strong); font-size: 13px; margin-bottom: 8px; }
+    .compare-stat-row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid #21262d; }
+    .compare-stat-row .delta-up { color: var(--red); }
+    .compare-stat-row .delta-down { color: var(--green); }
+    .attachment-size-note { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .related-tag { display: inline-flex; align-items: center; gap: 4px; color: #79c0ff; font-size: 11px; cursor: pointer; text-decoration: underline; }
+    @media (max-width: 860px) {
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">HW</div>
+        <div>
+          <h1>硬體 Debug Logger</h1>
+          <p>專案、版本、測試紀錄管理。資料以 JSON 檔案手動匯入與儲存。</p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <span id="unsavedIndicator" class="unsaved">尚未儲存</span>
+        <button id="toggleSidebarBtn" class="btn" onclick="toggleSidebar()">篩選</button>
+        <button class="btn-primary" onclick="saveToFile()">儲存 JSON</button>
+        <button class="btn-blue" onclick="document.getElementById('openFile').click()">開啟 JSON</button>
+        <input type="file" id="openFile" accept=".json" style="display:none" onchange="openFromFile(this)">
+        <button class="btn" onclick="exportMarkdown()">匯出 Markdown</button>
+        <button class="btn" onclick="exportCsv()">匯出 CSV</button>
+        <button class="btn" onclick="exportPdf()">匯出 PDF</button>
+        <label class="inline-check" title="匯出 PDF 時是否包含圖片附件"><input type="checkbox" id="pdfIncludeImages" checked> 含圖片</label>
+        <button class="btn" onclick="showTagManageModal()">管理標籤</button>
+        <button class="btn" onclick="showCompareModal()">比較版本</button>
+        <button class="btn" onclick="loadDemoData()">載入範例</button>
+        <button class="btn" onclick="newProjectData()">新檔案</button>
+      </div>
+    </div>
+
+    <div id="draftBanner" class="draft-banner">
+      <span id="draftBannerText">偵測到未儲存的自動備份。</span>
+      <div class="actions">
+        <button class="btn-blue" onclick="restoreAutosave()">還原備份</button>
+        <button class="btn" onclick="dismissAutosave()">忽略</button>
+      </div>
+    </div>
+
+    <div class="main-layout">
+      <aside id="sidebar" class="sidebar">
+        <div class="card">
+          <div class="card-header">
+            <h3>專案</h3>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button class="btn" onclick="document.getElementById('importProjectsFile').click()">匯入</button>
+              <button class="btn-primary" onclick="showProjectModal()">+ 新增</button>
+              <input type="file" id="importProjectsFile" accept=".json" style="display:none" onchange="importProjectsFromFile(this)">
+            </div>
+          </div>
+          <div id="projectList"></div>
+        </div>
+
+        <div id="versionSection" class="card" style="display:none">
+          <div class="card-header">
+            <h3>版本</h3>
+            <button class="btn-blue" onclick="showVersionModal()">+ 新增</button>
+          </div>
+          <div id="versionList"></div>
+        </div>
+
+        <div class="card">
+          <h3>搜尋與篩選</h3>
+          <div style="height:10px"></div>
+          <input type="text" class="search-input" id="searchInput" placeholder="搜尋標題、條件、問題、步驟、觀察、結論..." oninput="searchLogs()">
+          <div style="margin-top:8px">
+            <label class="inline-check"><input type="checkbox" id="globalSearchToggle" onchange="searchLogs()"> 跨專案／版本搜尋</label>
+          </div>
+          <div class="form-group" style="margin-top:12px">
+            <label>排序</label>
+            <select id="sortOrder" onchange="renderLogs()">
+              <option value="time_desc">時間：新到舊</option>
+              <option value="time_asc">時間：舊到新</option>
+              <option value="severity">嚴重度優先</option>
+              <option value="status">狀態</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>狀態</label>
+            <select id="statusFilter" onchange="renderLogs()">
+              <option value="">全部狀態</option>
+              <option>Open</option>
+              <option>Investigating</option>
+              <option>Fixed</option>
+              <option>Verified</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>嚴重度</label>
+            <select id="severityFilter" onchange="renderLogs()">
+              <option value="">全部嚴重度</option>
+              <option>Critical</option>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </div>
+          <div class="tag-filters" id="tagFilters"></div>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div id="emptyState" class="empty-state">
+          <div class="icon">LOG</div>
+          <h2>選擇或建立一個專案</h2>
+          <p>建立專案與版本後，就能開始記錄測試條件、問題、觀察、結論與附件。</p>
+        </div>
+
+        <div id="globalSearchView" style="display:none">
+          <div class="view-head">
+            <div>
+              <h2>跨專案搜尋結果</h2>
+              <p id="globalSearchSubtitle"></p>
+            </div>
+          </div>
+          <div id="globalSearchResults" class="timeline"></div>
+        </div>
+
+        <div id="logView" style="display:none">
+          <div class="view-head">
+            <div>
+              <h2 id="currentVersionTitle"></h2>
+              <p id="currentProjectSubtitle"></p>
+            </div>
+            <button class="btn-primary" onclick="showLogModal()">+ 新增紀錄</button>
+          </div>
+          <div id="statsGrid" class="stats-grid"></div>
+          <div id="logTimeline" class="timeline"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="projectModal" class="modal-overlay" onclick="if(event.target===this)attemptCloseModal('projectModal')">
+    <div class="modal">
+      <h3 id="projectModalTitle">新增專案</h3>
+      <div class="form-group">
+        <label>專案名稱 <span class="danger">*</span></label>
+        <input type="text" id="projectName">
+      </div>
+      <div class="form-group">
+        <label>專案代碼</label>
+        <input type="text" id="projectCode" placeholder="例如 HW-2026-001">
+      </div>
+      <div class="form-group">
+        <label>描述</label>
+        <textarea id="projectDesc" rows="3"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="attemptCloseModal('projectModal')">取消</button>
+        <button class="btn-primary" onclick="saveProject()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="versionModal" class="modal-overlay" onclick="if(event.target===this)attemptCloseModal('versionModal')">
+    <div class="modal">
+      <h3 id="versionModalTitle">新增版本</h3>
+      <div class="form-group">
+        <label>版本名稱 <span class="danger">*</span></label>
+        <input type="text" id="versionName" placeholder="例如 EVT / DVT / PVT / v1.0">
+      </div>
+      <div class="form-group">
+        <label>描述</label>
+        <textarea id="versionDesc" rows="2"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="attemptCloseModal('versionModal')">取消</button>
+        <button class="btn-blue" onclick="saveVersion()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="logModal" class="modal-overlay" onclick="if(event.target===this)attemptCloseModal('logModal')">
+    <div class="modal wide">
+      <h3 id="logModalTitle">新增紀錄</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>標題 <span class="danger">*</span></label>
+          <input type="text" id="logTitle">
+        </div>
+        <div class="form-group">
+          <label>狀態</label>
+          <select id="logStatus">
+            <option>Open</option>
+            <option>Investigating</option>
+            <option>Fixed</option>
+            <option>Verified</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>嚴重度</label>
+          <select id="logSeverity">
+            <option>Medium</option>
+            <option>Critical</option>
+            <option>High</option>
+            <option>Low</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>附件</label>
+          <input type="file" id="logAttachments" multiple onchange="updateAttachmentSizeNote()">
+          <div class="helper">可加入示波器截圖、熱像圖、修改照片等。圖片會自動壓縮以縮小 JSON 體積。</div>
+          <div id="attachmentSizeNote" class="attachment-size-note"></div>
+          <div id="existingAttachments" class="existing-attachments"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>標籤</label>
+        <div id="logTagChecks" class="checkbox-group"></div>
+      </div>
+      <div class="form-group">
+        <label>關聯紀錄（選填）</label>
+        <select id="logRelated">
+          <option value="">無</option>
+        </select>
+        <div class="helper">可標記此問題是延續、重現或取代了哪一筆紀錄（含跨版本）。</div>
+      </div>
+      <div class="form-group">
+        <label>測試條件</label>
+        <textarea id="logConditions" rows="2" placeholder="例如 25C、Vin=12V、Load=2A"></textarea>
+      </div>
+      <div class="form-group">
+        <label>問題描述 <span class="danger">*</span></label>
+        <textarea id="logProblem" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>重現 / 測試步驟</label>
+        <textarea id="logSteps" rows="3" placeholder="1. ...&#10;2. ..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>觀察 / 量測結果</label>
+        <textarea id="logObservations" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>結論 / 對策</label>
+        <textarea id="logConclusion" rows="2"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="attemptCloseModal('logModal')">取消</button>
+        <button class="btn-primary" onclick="saveLog()">儲存紀錄</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tagManageModal" class="modal-overlay" onclick="if(event.target===this)closeModal('tagManageModal')">
+    <div class="modal">
+      <h3>管理標籤</h3>
+      <div id="tagManageList" class="tag-manage-list"></div>
+      <div class="modal-actions" style="justify-content:flex-start;margin-top:0;margin-bottom:16px">
+        <button class="btn" onclick="addTagRow()">+ 新增標籤</button>
+      </div>
+      <div class="helper">刪除標籤不會移除已套用在紀錄上的標籤文字，只會從篩選清單移除。</div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('tagManageModal')">取消</button>
+        <button class="btn-primary" onclick="saveTagManage()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="compareModal" class="modal-overlay" onclick="if(event.target===this)closeModal('compareModal')">
+    <div class="modal wide">
+      <h3>比較版本</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>版本 A</label>
+          <select id="compareVerA" onchange="renderCompare()"></select>
+        </div>
+        <div class="form-group">
+          <label>版本 B</label>
+          <select id="compareVerB" onchange="renderCompare()"></select>
+        </div>
+      </div>
+      <div id="compareResult"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('compareModal')">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="imageLightbox" class="image-lightbox" onclick="if(event.target===this)closeImagePreview()">
+    <button class="lightbox-close" onclick="closeImagePreview()" title="關閉">×</button>
+    <img id="imageLightboxImg" alt="">
+    <div id="imageLightboxCaption" class="lightbox-caption"></div>
+  </div>
+
+  <script>
+    const DEFAULT_TAGS = [
+      { name: 'Power', color: '#ffa657' },
+      { name: 'Signal', color: '#79c0ff' },
+      { name: 'EMI', color: '#d2a8ff' },
+      { name: 'Thermal', color: '#ff7b72' },
+      { name: 'Firmware', color: '#3fb950' },
+      { name: 'Mechanical', color: '#a5d6ff' },
+      { name: 'Risk', color: '#ffd700' }
+    ];
+    const statusColors = { Open: '#ff7b72', Investigating: '#ffa657', Fixed: '#79c0ff', Verified: '#3fb950' };
+    const severityColors = { Critical: '#ff7b72', High: '#ffa657', Medium: '#d2a8ff', Low: '#8b949e' };
+    const severityRank = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+    const statusRank = { Open: 0, Investigating: 1, Fixed: 2, Verified: 3 };
+    const AUTOSAVE_KEY = 'hwdebug_autosave_v1';
+    const MAX_IMAGE_DIMENSION = 1600;
+    const IMAGE_QUALITY = 0.8;
+
+    let data = { projects: [], tags: JSON.parse(JSON.stringify(DEFAULT_TAGS)) };
+    let currentProjectId = null;
+    let currentVersionId = null;
+    let editingProjectId = null;
+    let editingVersionId = null;
+    let editingLogId = null;
+    let removedAttachmentIndexes = new Set();
+    let expandedLogIds = new Set();
+    let searchFilter = '';
+    let tagFilter = '';
+    let hasUnsavedChanges = false;
+    let modalDirty = false;
+    let autosaveTimer = null;
+    let pendingTagRows = [];
+
+    function tagList() {
+      if (!Array.isArray(data.tags) || !data.tags.length) data.tags = JSON.parse(JSON.stringify(DEFAULT_TAGS));
+      return data.tags;
+    }
+    function markUnsaved() {
+      hasUnsavedChanges = true;
+      document.getElementById('unsavedIndicator').style.display = 'inline';
+      scheduleAutosave();
+    }
+    function markSaved() {
+      hasUnsavedChanges = false;
+      document.getElementById('unsavedIndicator').style.display = 'none';
+      clearAutosave();
+    }
+    function scheduleAutosave() {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(() => {
+        try {
+          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ data, savedAt: new Date().toISOString() }));
+        } catch (err) {
+          console.warn('自動備份失敗（可能是儲存空間不足）：', err.message);
+        }
+      }, 800);
+    }
+    function clearAutosave() {
+      clearTimeout(autosaveTimer);
+      try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* ignore */ }
+    }
+    function checkAutosaveOnLoad() {
+      let raw;
+      try { raw = localStorage.getItem(AUTOSAVE_KEY); } catch (err) { return; }
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.data || !Array.isArray(parsed.data.projects) || !parsed.data.projects.length) return;
+        const when = parsed.savedAt ? new Date(parsed.savedAt).toLocaleString('zh-TW') : '未知時間';
+        document.getElementById('draftBannerText').textContent = `偵測到 ${when} 的未儲存自動備份，是否還原？`;
+        document.getElementById('draftBanner').classList.add('show');
+      } catch (err) { /* corrupt draft, ignore */ }
+    }
+    function restoreAutosave() {
+      let raw;
+      try { raw = localStorage.getItem(AUTOSAVE_KEY); } catch (err) { return; }
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        data = normalizeData(parsed.data);
+        currentProjectId = null;
+        currentVersionId = null;
+        hideLogView();
+        document.getElementById('draftBanner').classList.remove('show');
+        markUnsaved();
+        renderAll();
+      } catch (err) {
+        alert('還原備份失敗：' + err.message);
+      }
+    }
+    function dismissAutosave() {
+      document.getElementById('draftBanner').classList.remove('show');
+      clearAutosave();
+    }
+    function uid(prefix) {
+      return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    }
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+    function downloadFile(filename, content, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function validateData(imported) {
+      const errors = [];
+      if (!imported || !Array.isArray(imported.projects)) errors.push('根節點需要 projects 陣列。');
+      (imported.projects || []).forEach((p, pi) => {
+        if (!p.id || !p.name) errors.push(`projects[${pi}] 缺少 id 或 name。`);
+        if (!Array.isArray(p.versions)) errors.push(`projects[${pi}].versions 需要是陣列。`);
+        (p.versions || []).forEach((v, vi) => {
+          if (!v.id || !v.name) errors.push(`projects[${pi}].versions[${vi}] 缺少 id 或 name。`);
+          if (!Array.isArray(v.logs)) errors.push(`projects[${pi}].versions[${vi}].logs 需要是陣列。`);
+          (v.logs || []).forEach((l, li) => {
+            if (!l.id || !l.title) errors.push(`log ${pi}/${vi}/${li} 缺少 id 或 title。`);
+            if (!Array.isArray(l.tags)) errors.push(`log ${pi}/${vi}/${li}.tags 需要是陣列。`);
+          });
+        });
+      });
+      return errors;
+    }
+    function normalizeData(imported) {
+      imported.tags = Array.isArray(imported.tags) && imported.tags.length ? imported.tags : JSON.parse(JSON.stringify(DEFAULT_TAGS));
+      imported.projects.forEach(p => {
+        p.versions = p.versions || [];
+        p.versions.forEach(v => {
+          v.logs = v.logs || [];
+          v.logs.forEach(l => {
+            l.status = l.status || 'Open';
+            l.severity = l.severity || 'Medium';
+            l.attachments = l.attachments || [];
+            l.timestamp = l.timestamp || new Date().toISOString();
+            l.relatedLogId = l.relatedLogId || '';
+          });
+        });
+      });
+      return imported;
+    }
+
+    function saveToFile() {
+      downloadFile(`hw_debug_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.json`, JSON.stringify(data, null, 2), 'application/json');
+      markSaved();
+    }
+    function openFromFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          const errors = validateData(imported);
+          if (errors.length) {
+            alert(`JSON 格式驗證失敗：\n\n${errors.slice(0, 8).join('\n')}${errors.length > 8 ? '\n...' : ''}`);
+            return;
+          }
+          data = normalizeData(imported);
+          currentProjectId = null;
+          currentVersionId = null;
+          hideLogView();
+          markSaved();
+          renderAll();
+          alert(`已開啟 ${file.name}`);
+        } catch (err) {
+          alert(`讀取 JSON 失敗：${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+      input.value = '';
+    }
+    function importProjectsFromFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          const errors = validateData(imported);
+          if (errors.length) {
+            alert(`JSON 格式驗證失敗：\n\n${errors.slice(0, 8).join('\n')}${errors.length > 8 ? '\n...' : ''}`);
+            return;
+          }
+          const importedData = normalizeData(imported);
+          if (!importedData.projects.length) {
+            alert('這個 JSON 沒有可匯入的專案。');
+            return;
+          }
+          const existingKeys = new Set(data.projects.map(p => `${p.name}::${p.code || ''}`));
+          const toImport = [];
+          let skipped = 0;
+          for (const proj of importedData.projects) {
+            const key = `${proj.name}::${proj.code || ''}`;
+            if (existingKeys.has(key)) {
+              const choice = confirm(`專案「${proj.name}」${proj.code ? `（${proj.code}）` : ''}似乎已存在，按「確定」仍要匯入為新專案（會標註 [匯入]），按「取消」則略過此專案。`);
+              if (!choice) { skipped++; continue; }
+              proj.name = `${proj.name} [匯入]`;
+            }
+            toImport.push(proj);
+          }
+          const projectsToAdd = toImport.map(cloneImportedProject);
+          if (!projectsToAdd.length) {
+            alert(skipped ? `已略過 ${skipped} 個重複專案，沒有新增任何專案。` : '這個 JSON 沒有可匯入的專案。');
+            return;
+          }
+          data.projects.push(...projectsToAdd);
+          markUnsaved();
+          renderAll();
+          alert(`已從 ${file.name} 匯入 ${projectsToAdd.length} 個專案。${skipped ? `（略過 ${skipped} 個重複）` : ''}`);
+        } catch (err) {
+          alert(`匯入專案失敗：${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+      input.value = '';
+    }
+    function cloneImportedProject(project) {
+      const copy = JSON.parse(JSON.stringify(project));
+      copy.id = uid('proj');
+      copy.versions = (copy.versions || []).map(version => {
+        version.id = uid('ver');
+        version.logs = (version.logs || []).map(log => ({
+          ...log,
+          id: uid('log'),
+          importedAt: new Date().toISOString()
+        }));
+        return version;
+      });
+      return copy;
+    }
+    function newProjectData() {
+      if (hasUnsavedChanges && !confirm('目前有尚未儲存的變更，確定要建立新檔案？')) return;
+      data = { projects: [], tags: JSON.parse(JSON.stringify(DEFAULT_TAGS)) };
+      currentProjectId = null;
+      currentVersionId = null;
+      hideLogView();
+      markSaved();
+      renderAll();
+    }
+
+    function loadDemoData() {
+      if (hasUnsavedChanges && !confirm('目前有尚未儲存的變更，確定要載入範例？')) return;
+      const pid = uid('proj');
+      const vid = uid('ver');
+      data = {
+        tags: JSON.parse(JSON.stringify(DEFAULT_TAGS)),
+        projects: [{
+          id: pid,
+          name: '12V 電源板 Debug',
+          code: 'HW-2026-001',
+          description: 'Buck、LDO、EMI 與熱測試紀錄',
+          versions: [{
+            id: vid,
+            name: 'EVT',
+            description: '第一版工程驗證',
+            logs: [{
+              id: uid('log'),
+              title: '5V ripple 超過規格',
+              tags: ['Power'],
+              status: 'Fixed',
+              severity: 'High',
+              conditions: 'Vin=12V, Load=2A, Ta=25C',
+              problem: '5V 輸出 ripple 約 120mVpp，高於 50mVpp 目標。',
+              steps: '1. 使用示波器 AC coupling 量測輸出\n2. Load sweep 0.5A 到 3A\n3. 比較不同輸出電容組合',
+              observations: '主要雜訊頻率約 500kHz，增加 100uF bulk capacitor 後改善明顯。',
+              conclusion: '改為 100uF polymer + 4.7uF MLCC，ripple 降至 35mVpp。',
+              attachments: [],
+              timestamp: new Date(Date.now() - 86400000).toISOString()
+            }]
+          }]
+        }]
+      };
+      currentProjectId = null;
+      currentVersionId = null;
+      hideLogView();
+      markSaved();
+      renderAll();
+    }
+
+    function renderAll() {
+      renderTagControls();
+      renderProjects();
+      renderVersions();
+      renderLogs();
+    }
+    function renderTagControls() {
+      const list = tagList();
+      document.getElementById('tagFilters').innerHTML = list.map(t =>
+        `<span class="tag-filter ${tagFilter === t.name ? 'active' : ''}" style="color:${t.color}" onclick="filterByTag('${t.name}')">${escapeHtml(t.name)}</span>`
+      ).join('');
+      document.getElementById('logTagChecks').innerHTML = list.map(t =>
+        `<label style="color:${t.color}"><input type="checkbox" class="log-tag" value="${escapeHtml(t.name)}"> ${escapeHtml(t.name)}</label>`
+      ).join('');
+    }
+    function showTagManageModal() {
+      pendingTagRows = JSON.parse(JSON.stringify(tagList()));
+      renderTagManageRows();
+      document.getElementById('tagManageModal').classList.add('active');
+    }
+    function renderTagManageRows() {
+      document.getElementById('tagManageList').innerHTML = pendingTagRows.map((t, i) => `
+        <div class="tag-manage-row">
+          <input type="color" value="${t.color}" oninput="pendingTagRows[${i}].color=this.value">
+          <input type="text" value="${escapeHtml(t.name)}" oninput="pendingTagRows[${i}].name=this.value" placeholder="標籤名稱">
+          <button class="icon-btn danger" onclick="removeTagRow(${i})" title="刪除">×</button>
+        </div>`).join('') || '<div class="helper">尚未有任何標籤，點選下方新增。</div>';
+    }
+    function addTagRow() {
+      pendingTagRows.push({ name: '', color: '#79c0ff' });
+      renderTagManageRows();
+    }
+    function removeTagRow(index) {
+      pendingTagRows.splice(index, 1);
+      renderTagManageRows();
+    }
+    function saveTagManage() {
+      const cleaned = pendingTagRows.map(t => ({ name: (t.name || '').trim(), color: t.color || '#79c0ff' })).filter(t => t.name);
+      const names = new Set();
+      for (const t of cleaned) {
+        if (names.has(t.name)) return alert(`標籤「${t.name}」重複，請修改後再儲存。`);
+        names.add(t.name);
+      }
+      data.tags = cleaned.length ? cleaned : JSON.parse(JSON.stringify(DEFAULT_TAGS));
+      markUnsaved();
+      closeModal('tagManageModal');
+      renderTagControls();
+    }
+    function renderProjects() {
+      const container = document.getElementById('projectList');
+      container.innerHTML = data.projects.map(p => `
+        <div class="list-item ${p.id === currentProjectId ? 'active-proj' : ''}">
+          <div class="list-item-info" onclick="selectProject('${p.id}')">
+            <div class="list-item-title">${escapeHtml(p.name)}</div>
+            <div class="list-item-sub">${escapeHtml(p.code || '無代碼')} · ${p.versions.length} 版本</div>
+          </div>
+          <div class="item-actions">
+            <button class="icon-btn" onclick="event.stopPropagation();showProjectModal('${p.id}')" title="編輯">✎</button>
+            <button class="icon-btn danger" onclick="event.stopPropagation();deleteProject('${p.id}')" title="刪除">×</button>
+          </div>
+        </div>`).join('');
+    }
+    function renderVersions() {
+      const section = document.getElementById('versionSection');
+      const container = document.getElementById('versionList');
+      const project = getProject();
+      section.style.display = project ? 'block' : 'none';
+      if (!project) {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML = project.versions.map(v => `
+        <div class="list-item ${v.id === currentVersionId ? 'active-ver' : ''}">
+          <div class="list-item-info" onclick="selectVersion('${v.id}')">
+            <div class="list-item-title">${escapeHtml(v.name)}</div>
+            <div class="list-item-sub">${escapeHtml(v.description || '無描述')} · ${v.logs.length} 筆</div>
+          </div>
+          <div class="item-actions">
+            <button class="icon-btn" onclick="event.stopPropagation();showVersionModal('${v.id}')" title="編輯">✎</button>
+            <button class="icon-btn danger" onclick="event.stopPropagation();deleteVersion('${v.id}')" title="刪除">×</button>
+          </div>
+        </div>`).join('');
+    }
+    function renderLogs() {
+      const timeline = document.getElementById('logTimeline');
+      const version = getVersion();
+      if (!version) return;
+      let logs = filteredLogs(version.logs);
+      renderStats(version.logs);
+      if (!logs.length) {
+        timeline.innerHTML = '<div style="text-align:center;color:#8b949e;padding:40px">沒有符合條件的紀錄</div>';
+        return;
+      }
+      timeline.innerHTML = logs.map(log => {
+        const date = new Date(log.timestamp);
+        const dateStr = `${date.toLocaleDateString('zh-TW')} ${date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
+        const tagsHtml = (log.tags || []).map(t => `<span class="tag" style="color:${tagColor(t)}">${escapeHtml(t)}</span>`).join('');
+        const attachmentsHtml = renderAttachmentList(log.attachments || []);
+        const isExpanded = expandedLogIds.has(log.id);
+        return `
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="log-card ${isExpanded ? 'is-expanded' : 'is-collapsed'}" ondblclick="toggleLogExpanded('${log.id}')">
+              <div class="log-header">
+                <div>
+                  <div class="log-title-row">
+                    <div class="log-title">${escapeHtml(log.title)}</div>
+                    <span class="status" style="color:${statusColors[log.status] || '#8b949e'}">${escapeHtml(log.status)}</span>
+                    <span class="severity" style="color:${severityColors[log.severity] || '#8b949e'}">${escapeHtml(log.severity)}</span>
+                    ${tagsHtml}
+                  </div>
+                  <div class="log-meta">${dateStr}</div>
+                </div>
+                <div class="item-actions" ondblclick="event.stopPropagation()">
+                  <button class="icon-btn" onclick="event.stopPropagation();showLogModal('${log.id}')" title="編輯">✎</button>
+                  <button class="icon-btn danger" onclick="event.stopPropagation();deleteLog('${log.id}')" title="刪除">×</button>
+                </div>
+              </div>
+              ${sectionHtml('問題描述', log.problem, '#ff7b72')}
+              <div class="log-extra ${isExpanded ? 'open' : ''}">
+                ${sectionHtml('測試條件', log.conditions, '#58a6ff', true)}
+                ${sectionHtml('重現 / 測試步驟', log.steps, '#ffa657')}
+                ${sectionHtml('觀察 / 量測結果', log.observations, '#79c0ff')}
+                ${log.conclusion ? `<div class="log-section"><div class="log-box-green"><div class="log-section-label" style="color:#3fb950">結論 / 對策</div><div class="log-section-content">${escapeHtml(log.conclusion)}</div></div></div>` : ''}
+                ${attachmentsHtml ? `<div class="log-section"><div class="log-section-label">附件</div>${attachmentsHtml}</div>` : ''}
+                ${relatedLogHtml(log)}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+    function relatedLogHtml(log) {
+      if (!log.relatedLogId) return '';
+      for (const p of data.projects) {
+        for (const v of p.versions) {
+          const target = v.logs.find(l => l.id === log.relatedLogId);
+          if (target) {
+            return `<div class="log-section"><div class="log-section-label">關聯紀錄</div><span class="related-tag" onclick="event.stopPropagation();jumpToLog('${p.id}','${v.id}','${target.id}')">→ ${escapeHtml(p.name)} / ${escapeHtml(v.name)} / ${escapeHtml(target.title)}</span></div>`;
+          }
+        }
+      }
+      return '';
+    }
+    function sectionHtml(label, content, color, boxed = false) {
+      if (!content) return '';
+      const inner = `<div class="log-section-label" style="color:${color}">${label}</div><div class="log-section-content">${escapeHtml(content)}</div>`;
+      return boxed ? `<div class="log-section"><div class="log-box">${inner}</div></div>` : `<div class="log-section">${inner}</div>`;
+    }
+    function toggleLogExpanded(logId) {
+      if (expandedLogIds.has(logId)) {
+        expandedLogIds.delete(logId);
+      } else {
+        expandedLogIds.add(logId);
+      }
+      renderLogs();
+    }
+    function isImageAttachment(attachment) {
+      return (attachment.type || '').startsWith('image/') || (attachment.dataUrl || '').startsWith('data:image/');
+    }
+    function renderAttachmentList(attachments) {
+      if (!attachments.length) return '';
+      return `<div class="attachment-list">${attachments.map((a, i) => renderAttachmentItem(a, i)).join('')}</div>`;
+    }
+    function renderAttachmentItem(attachment, index, editable = false) {
+      const name = escapeHtml(attachment.name || `附件 ${index + 1}`);
+      const deleteButton = editable
+        ? `<button class="attachment-delete" onclick="event.preventDefault();deleteAttachmentInModal(${index})" title="刪除附件">×</button>`
+        : '';
+      if (isImageAttachment(attachment)) {
+        return `
+          <div class="attachment-card" ondblclick="event.stopPropagation()">
+            <button style="display:block;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;" onclick="event.preventDefault();openImagePreview('${encodeURIComponent(attachment.dataUrl)}', '${encodeURIComponent(attachment.name || `附件 ${index + 1}`)}')" title="放大預覽">
+              <img src="${attachment.dataUrl}" alt="${name}">
+            </button>
+            <div class="attachment-card-footer">
+              <a class="attachment-name" href="${attachment.dataUrl}" download="${name}" title="${name}">${name}</a>
+              ${deleteButton}
+            </div>
+          </div>`;
+      }
+      return `
+        <div class="attachment-card" ondblclick="event.stopPropagation()">
+          <div style="height:96px;display:flex;align-items:center;justify-content:center;color:#8b949e;font-size:12px;">檔案</div>
+          <div class="attachment-card-footer">
+            <a class="attachment-name" href="${attachment.dataUrl}" download="${name}" title="${name}">${name}</a>
+            ${deleteButton}
+          </div>
+        </div>`;
+    }
+    function renderExistingAttachments(log) {
+      const container = document.getElementById('existingAttachments');
+      const attachments = (log?.attachments || []).filter((_, index) => !removedAttachmentIndexes.has(index));
+      if (!log || !attachments.length) {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML = `
+        <div class="helper">既有附件</div>
+        <div class="attachment-list">
+          ${attachments.map((attachment) => {
+            const originalIndex = (log.attachments || []).indexOf(attachment);
+            return renderAttachmentItem(attachment, originalIndex, true);
+          }).join('')}
+        </div>`;
+    }
+    function deleteAttachmentInModal(index) {
+      removedAttachmentIndexes.add(index);
+      modalDirty = true;
+      const log = editingLogId ? getVersion()?.logs.find(x => x.id === editingLogId) : null;
+      renderExistingAttachments(log);
+      updateAttachmentSizeNote();
+    }
+    function openImagePreview(encodedSrc, encodedName) {
+      const src = decodeURIComponent(encodedSrc);
+      const name = decodeURIComponent(encodedName || '');
+      document.getElementById('imageLightboxImg').src = src;
+      document.getElementById('imageLightboxImg').alt = name;
+      document.getElementById('imageLightboxCaption').textContent = name;
+      document.getElementById('imageLightbox').classList.add('active');
+    }
+    function closeImagePreview() {
+      document.getElementById('imageLightbox').classList.remove('active');
+      document.getElementById('imageLightboxImg').src = '';
+      document.getElementById('imageLightboxCaption').textContent = '';
+    }
+    function renderStats(allLogs) {
+      const fixed = allLogs.filter(l => ['Fixed', 'Verified'].includes(l.status)).length;
+      const open = allLogs.filter(l => ['Open', 'Investigating'].includes(l.status)).length;
+      const critical = allLogs.filter(l => ['Critical', 'High'].includes(l.severity)).length;
+      const verified = allLogs.filter(l => l.status === 'Verified').length;
+      document.getElementById('statsGrid').innerHTML = [
+        ['總紀錄', allLogs.length],
+        ['未結案', open],
+        ['高風險', critical],
+        ['已驗證', verified || fixed]
+      ].map(([label, value]) => `<div class="stat"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`).join('');
+    }
+
+    function sortLogs(logs) {
+      const order = document.getElementById('sortOrder')?.value || 'time_desc';
+      const sorted = [...logs];
+      if (order === 'time_asc') sorted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      else if (order === 'severity') sorted.sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9) || new Date(b.timestamp) - new Date(a.timestamp));
+      else if (order === 'status') sorted.sort((a, b) => (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9) || new Date(b.timestamp) - new Date(a.timestamp));
+      else sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      return sorted;
+    }
+    function filteredLogs(logs) {
+      const status = document.getElementById('statusFilter').value;
+      const severity = document.getElementById('severityFilter').value;
+      const s = searchFilter.toLowerCase();
+      return sortLogs(logs)
+        .filter(l => !status || l.status === status)
+        .filter(l => !severity || l.severity === severity)
+        .filter(l => !tagFilter || (l.tags || []).includes(tagFilter))
+        .filter(l => !s || [l.title, l.conditions, l.problem, l.steps, l.observations, l.conclusion].some(x => (x || '').toLowerCase().includes(s)));
+    }
+    function tagColor(name) {
+      return (tagList().find(t => t.name === name) || {}).color || '#8b949e';
+    }
+    function getProject() {
+      return data.projects.find(p => p.id === currentProjectId);
+    }
+    function getVersion() {
+      return getProject()?.versions.find(v => v.id === currentVersionId);
+    }
+    function hideLogView() {
+      document.getElementById('versionSection').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('logView').style.display = 'none';
+      document.getElementById('globalSearchView').style.display = 'none';
+    }
+    function selectProject(id) {
+      currentProjectId = id;
+      currentVersionId = null;
+      document.getElementById('globalSearchView').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('logView').style.display = 'none';
+      renderProjects();
+      renderVersions();
+    }
+    function selectVersion(id) {
+      currentVersionId = id;
+      const project = getProject();
+      const version = getVersion();
+      document.getElementById('globalSearchView').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('logView').style.display = 'block';
+      document.getElementById('currentVersionTitle').textContent = version.name;
+      document.getElementById('currentProjectSubtitle').textContent = `${project.name}${project.code ? ` (${project.code})` : ''}`;
+      renderVersions();
+      renderLogs();
+    }
+
+    function showProjectModal(id = null) {
+      editingProjectId = id;
+      const p = id ? data.projects.find(x => x.id === id) : null;
+      document.getElementById('projectModalTitle').textContent = id ? '編輯專案' : '新增專案';
+      document.getElementById('projectName').value = p?.name || '';
+      document.getElementById('projectCode').value = p?.code || '';
+      document.getElementById('projectDesc').value = p?.description || '';
+      modalDirty = false;
+      document.getElementById('projectModal').classList.add('active');
+    }
+    function showVersionModal(id = null) {
+      editingVersionId = id;
+      const v = id ? getProject()?.versions.find(x => x.id === id) : null;
+      document.getElementById('versionModalTitle').textContent = id ? '編輯版本' : '新增版本';
+      document.getElementById('versionName').value = v?.name || '';
+      document.getElementById('versionDesc').value = v?.description || '';
+      modalDirty = false;
+      document.getElementById('versionModal').classList.add('active');
+    }
+    function showLogModal(id = null) {
+      editingLogId = id;
+      removedAttachmentIndexes = new Set();
+      const log = id ? getVersion()?.logs.find(x => x.id === id) : null;
+      document.getElementById('logModalTitle').textContent = id ? '編輯紀錄' : '新增紀錄';
+      document.getElementById('logTitle').value = log?.title || '';
+      document.getElementById('logStatus').value = log?.status || 'Open';
+      document.getElementById('logSeverity').value = log?.severity || 'Medium';
+      document.getElementById('logConditions').value = log?.conditions || '';
+      document.getElementById('logProblem').value = log?.problem || '';
+      document.getElementById('logSteps').value = log?.steps || '';
+      document.getElementById('logObservations').value = log?.observations || '';
+      document.getElementById('logConclusion').value = log?.conclusion || '';
+      document.getElementById('logAttachments').value = '';
+      document.querySelectorAll('.log-tag').forEach(cb => cb.checked = (log?.tags || []).includes(cb.value));
+      renderExistingAttachments(log);
+      updateAttachmentSizeNote();
+      populateRelatedLogSelect(log);
+      renderModalTagChecks(log);
+      modalDirty = false;
+      document.getElementById('logModal').classList.add('active');
+    }
+    function renderModalTagChecks(log) {
+      // ensures freshly added custom tags are reflected even mid-session
+      renderTagControls();
+      document.querySelectorAll('.log-tag').forEach(cb => cb.checked = (log?.tags || []).includes(cb.value));
+    }
+    function populateRelatedLogSelect(currentLog) {
+      const select = document.getElementById('logRelated');
+      const options = ['<option value="">無</option>'];
+      data.projects.forEach(p => {
+        p.versions.forEach(v => {
+          v.logs.forEach(l => {
+            if (currentLog && l.id === currentLog.id) return;
+            options.push(`<option value="${l.id}">${escapeHtml(p.name)} / ${escapeHtml(v.name)} / ${escapeHtml(l.title)}</option>`);
+          });
+        });
+      });
+      select.innerHTML = options.join('');
+      select.value = currentLog?.relatedLogId || '';
+    }
+    const CONFIRM_ON_CLOSE_MODALS = new Set(['projectModal', 'versionModal', 'logModal']);
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+    function attemptCloseModal(id) {
+      if (CONFIRM_ON_CLOSE_MODALS.has(id) && modalDirty) {
+        if (!confirm('這筆輸入尚未儲存，確定要放棄並關閉嗎？')) return;
+      }
+      modalDirty = false;
+      closeModal(id);
+    }
+    document.addEventListener('input', e => {
+      if (e.target.closest('#projectModal, #versionModal, #logModal')) modalDirty = true;
+    });
+    document.addEventListener('change', e => {
+      if (e.target.closest('#projectModal, #versionModal, #logModal')) modalDirty = true;
+    });
+
+    function saveProject() {
+      const name = document.getElementById('projectName').value.trim();
+      if (!name) return alert('請輸入專案名稱。');
+      if (editingProjectId) {
+        const p = data.projects.find(x => x.id === editingProjectId);
+        Object.assign(p, {
+          name,
+          code: document.getElementById('projectCode').value.trim(),
+          description: document.getElementById('projectDesc').value.trim()
+        });
+      } else {
+        data.projects.push({
+          id: uid('proj'),
+          name,
+          code: document.getElementById('projectCode').value.trim(),
+          description: document.getElementById('projectDesc').value.trim(),
+          versions: []
+        });
+      }
+      markUnsaved();
+      closeModal('projectModal');
+      renderProjects();
+      if (currentVersionId) selectVersion(currentVersionId);
+    }
+    function saveVersion() {
+      const name = document.getElementById('versionName').value.trim();
+      if (!name) return alert('請輸入版本名稱。');
+      const project = getProject();
+      if (!project) return alert('請先選擇專案。');
+      if (editingVersionId) {
+        const v = project.versions.find(x => x.id === editingVersionId);
+        Object.assign(v, { name, description: document.getElementById('versionDesc').value.trim() });
+      } else {
+        project.versions.push({ id: uid('ver'), name, description: document.getElementById('versionDesc').value.trim(), logs: [] });
+      }
+      markUnsaved();
+      closeModal('versionModal');
+      renderVersions();
+      if (currentVersionId) selectVersion(currentVersionId);
+    }
+    async function saveLog() {
+      const title = document.getElementById('logTitle').value.trim();
+      const problem = document.getElementById('logProblem').value.trim();
+      if (!title) return alert('請輸入標題。');
+      if (!problem) return alert('請輸入問題描述。');
+      const version = getVersion();
+      if (!version) return alert('請先選擇版本。');
+      const oldLog = editingLogId ? version.logs.find(x => x.id === editingLogId) : null;
+      const newAttachments = await readAttachments(document.getElementById('logAttachments').files);
+      const keptAttachments = (oldLog?.attachments || []).filter((_, index) => !removedAttachmentIndexes.has(index));
+      const payload = {
+        id: editingLogId || uid('log'),
+        title,
+        status: document.getElementById('logStatus').value,
+        severity: document.getElementById('logSeverity').value,
+        tags: Array.from(document.querySelectorAll('.log-tag:checked')).map(cb => cb.value),
+        conditions: document.getElementById('logConditions').value.trim(),
+        problem,
+        steps: document.getElementById('logSteps').value.trim(),
+        observations: document.getElementById('logObservations').value.trim(),
+        conclusion: document.getElementById('logConclusion').value.trim(),
+        relatedLogId: document.getElementById('logRelated').value,
+        attachments: [...keptAttachments, ...newAttachments],
+        timestamp: oldLog?.timestamp || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      if (oldLog) {
+        Object.assign(oldLog, payload);
+      } else {
+        version.logs.push(payload);
+      }
+      modalDirty = false;
+      markUnsaved();
+      closeModal('logModal');
+      renderLogs();
+      renderVersions();
+    }
+    function readAttachments(fileList) {
+      const files = Array.from(fileList || []);
+      return Promise.all(files.map(file => readFileAsDataUrl(file).then(dataUrl => {
+        if ((file.type || '').startsWith('image/')) {
+          return compressImageDataUrl(dataUrl).then(compressed => ({
+            name: file.name, type: 'image/jpeg', size: Math.round(compressed.length * 0.75), dataUrl: compressed
+          })).catch(() => ({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, dataUrl }));
+        }
+        return { name: file.name, type: file.type || 'application/octet-stream', size: file.size, dataUrl };
+      })));
+    }
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    function compressImageDataUrl(dataUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width <= MAX_IMAGE_DIMENSION && height <= MAX_IMAGE_DIMENSION) {
+            // still re-encode as JPEG to save space, but keep original scale
+          }
+          const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(width, height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(width * scale);
+          canvas.height = Math.round(height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          try {
+            resolve(canvas.toDataURL('image/jpeg', IMAGE_QUALITY));
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+    }
+    function attachmentTotalSize(log) {
+      const kept = (log?.attachments || []).filter((_, i) => !removedAttachmentIndexes.has(i));
+      const bytes = kept.reduce((sum, a) => sum + (a.size || Math.round((a.dataUrl || '').length * 0.75)), 0);
+      return bytes;
+    }
+    function formatBytes(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+    function updateAttachmentSizeNote() {
+      const log = editingLogId ? getVersion()?.logs.find(x => x.id === editingLogId) : null;
+      let bytes = attachmentTotalSize(log);
+      const newFiles = Array.from(document.getElementById('logAttachments')?.files || []);
+      bytes += newFiles.reduce((sum, f) => sum + f.size, 0);
+      const note = document.getElementById('attachmentSizeNote');
+      if (!note) return;
+      const extra = newFiles.length ? '（新圖片將於儲存時自動壓縮，實際體積會更小）' : '';
+      note.textContent = bytes ? `目前附件約 ${formatBytes(bytes)}${bytes > 5 * 1024 * 1024 ? '（偏大，建議精簡附件數量）' : ''} ${extra}` : '';
+    }
+    function duplicateLog(id) {
+      const version = getVersion();
+      const log = version.logs.find(x => x.id === id);
+      if (!log) return;
+      version.logs.push({
+        ...JSON.parse(JSON.stringify(log)),
+        id: uid('log'),
+        title: `${log.title} Copy`,
+        status: 'Open',
+        timestamp: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      markUnsaved();
+      renderLogs();
+      renderVersions();
+    }
+    function deleteProject(id) {
+      const p = data.projects.find(x => x.id === id);
+      if (!p) return;
+      const logCount = p.versions.reduce((sum, v) => sum + v.logs.length, 0);
+      if (!confirm(`確定刪除專案「${p.name}」？\n包含 ${p.versions.length} 個版本、${logCount} 筆紀錄。`)) return;
+      data.projects = data.projects.filter(x => x.id !== id);
+      if (currentProjectId === id) {
+        currentProjectId = null;
+        currentVersionId = null;
+        hideLogView();
+      }
+      markUnsaved();
+      renderAll();
+    }
+    function deleteVersion(id) {
+      const project = getProject();
+      const v = project?.versions.find(x => x.id === id);
+      if (!v) return;
+      if (!confirm(`確定刪除版本「${v.name}」？\n包含 ${v.logs.length} 筆紀錄。`)) return;
+      project.versions = project.versions.filter(x => x.id !== id);
+      if (currentVersionId === id) {
+        currentVersionId = null;
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('logView').style.display = 'none';
+      }
+      markUnsaved();
+      renderVersions();
+    }
+    function deleteLog(id) {
+      if (!confirm('確定刪除這筆紀錄？')) return;
+      const version = getVersion();
+      version.logs = version.logs.filter(x => x.id !== id);
+      markUnsaved();
+      renderLogs();
+      renderVersions();
+    }
+
+    function searchLogs() {
+      searchFilter = document.getElementById('searchInput').value.trim();
+      const isGlobal = document.getElementById('globalSearchToggle').checked;
+      if (isGlobal) {
+        renderGlobalSearch();
+      } else {
+        document.getElementById('globalSearchView').style.display = 'none';
+        if (currentVersionId) {
+          document.getElementById('emptyState').style.display = 'none';
+          document.getElementById('logView').style.display = 'block';
+          renderLogs();
+        } else {
+          document.getElementById('emptyState').style.display = 'block';
+          document.getElementById('logView').style.display = 'none';
+        }
+      }
+    }
+    function renderGlobalSearch() {
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('logView').style.display = 'none';
+      document.getElementById('globalSearchView').style.display = 'block';
+      const status = document.getElementById('statusFilter').value;
+      const severity = document.getElementById('severityFilter').value;
+      const s = searchFilter.toLowerCase();
+      let matches = [];
+      data.projects.forEach(p => {
+        p.versions.forEach(v => {
+          v.logs.forEach(l => {
+            if (status && l.status !== status) return;
+            if (severity && l.severity !== severity) return;
+            if (tagFilter && !(l.tags || []).includes(tagFilter)) return;
+            if (s && ![l.title, l.conditions, l.problem, l.steps, l.observations, l.conclusion].some(x => (x || '').toLowerCase().includes(s))) return;
+            matches.push({ log: l, project: p, version: v });
+          });
+        });
+      });
+      matches = sortLogs(matches.map(m => m.log)).map(l => matches.find(m => m.log === l));
+      document.getElementById('globalSearchSubtitle').textContent = `符合 ${matches.length} 筆紀錄，跨 ${new Set(matches.map(m => m.project.id)).size} 個專案`;
+      const container = document.getElementById('globalSearchResults');
+      if (!matches.length) {
+        container.innerHTML = '<div style="text-align:center;color:#8b949e;padding:40px">沒有符合條件的紀錄</div>';
+        return;
+      }
+      container.innerHTML = matches.map(({ log, project, version }) => {
+        const date = new Date(log.timestamp);
+        const dateStr = `${date.toLocaleDateString('zh-TW')} ${date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
+        const tagsHtml = (log.tags || []).map(t => `<span class="tag" style="color:${tagColor(t)}">${escapeHtml(t)}</span>`).join('');
+        return `
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="log-card is-collapsed" style="cursor:pointer" onclick="jumpToLog('${project.id}','${version.id}','${log.id}')">
+              <div class="log-header">
+                <div>
+                  <div class="log-title-row">
+                    <div class="log-title">${escapeHtml(log.title)}</div>
+                    <span class="status" style="color:${statusColors[log.status] || '#8b949e'}">${escapeHtml(log.status)}</span>
+                    <span class="severity" style="color:${severityColors[log.severity] || '#8b949e'}">${escapeHtml(log.severity)}</span>
+                    ${tagsHtml}
+                  </div>
+                  <div class="log-meta">${escapeHtml(project.name)} / ${escapeHtml(version.name)} · ${dateStr}</div>
+                </div>
+              </div>
+              ${sectionHtml('問題描述', log.problem, '#ff7b72')}
+            </div>
+          </div>`;
+      }).join('');
+    }
+    function jumpToLog(projectId, versionId, logId) {
+      document.getElementById('globalSearchToggle').checked = false;
+      document.getElementById('globalSearchView').style.display = 'none';
+      selectProject(projectId);
+      selectVersion(versionId);
+      expandedLogIds.add(logId);
+      renderLogs();
+      setTimeout(() => {
+        const target = document.querySelector(`[onclick*="toggleLogExpanded('${logId}')"]`);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    }
+    function filterByTag(tag) {
+      tagFilter = tagFilter === tag ? '' : tag;
+      renderTagControls();
+      if (currentVersionId) renderLogs();
+    }
+    function allVersionOptions() {
+      const opts = [];
+      data.projects.forEach(p => p.versions.forEach(v => opts.push({ id: v.id, label: `${p.name} / ${v.name}`, logs: v.logs })));
+      return opts;
+    }
+    function showCompareModal() {
+      const opts = allVersionOptions();
+      if (opts.length < 2) { alert('至少需要 2 個版本才能比較。'); return; }
+      const optionsHtml = opts.map(o => `<option value="${o.id}">${escapeHtml(o.label)}</option>`).join('');
+      document.getElementById('compareVerA').innerHTML = optionsHtml;
+      document.getElementById('compareVerB').innerHTML = optionsHtml;
+      document.getElementById('compareVerA').selectedIndex = 0;
+      document.getElementById('compareVerB').selectedIndex = 1;
+      renderCompare();
+      document.getElementById('compareModal').classList.add('active');
+    }
+    function compareStats(logs) {
+      return {
+        total: logs.length,
+        open: logs.filter(l => ['Open', 'Investigating'].includes(l.status)).length,
+        fixed: logs.filter(l => ['Fixed', 'Verified'].includes(l.status)).length,
+        critical: logs.filter(l => ['Critical', 'High'].includes(l.severity)).length
+      };
+    }
+    function deltaSpan(a, b, higherIsBad = true) {
+      const diff = b - a;
+      if (diff === 0) return `<span>持平</span>`;
+      const bad = higherIsBad ? diff > 0 : diff < 0;
+      const cls = bad ? 'delta-up' : 'delta-down';
+      const sign = diff > 0 ? '+' : '';
+      return `<span class="${cls}">${sign}${diff}</span>`;
+    }
+    function renderCompare() {
+      const opts = allVersionOptions();
+      const a = opts.find(o => o.id === document.getElementById('compareVerA').value);
+      const b = opts.find(o => o.id === document.getElementById('compareVerB').value);
+      if (!a || !b) return;
+      const sa = compareStats(a.logs);
+      const sb = compareStats(b.logs);
+      const rows = [
+        ['總紀錄', sa.total, sb.total, false],
+        ['未結案', sa.open, sb.open, true],
+        ['已結案', sa.fixed, sb.fixed, false],
+        ['高風險 (Critical/High)', sa.critical, sb.critical, true]
+      ];
+      document.getElementById('compareResult').innerHTML = `
+        <div class="compare-grid">
+          <div class="compare-col"><h4>${escapeHtml(a.label)}</h4>${rows.map(r => `<div class="compare-stat-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div>
+          <div class="compare-col"><h4>${escapeHtml(b.label)}</h4>${rows.map(r => `<div class="compare-stat-row"><span>${r[0]}</span><span>${r[2]} (${deltaSpan(r[1], r[2], r[3])})</span></div>`).join('')}</div>
+        </div>`;
+    }
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+    }
+
+    function exportMarkdown() {
+      const project = getProject();
+      const version = getVersion();
+      if (!project || !version) return alert('請先選擇要匯出的版本。');
+      const lines = [`# ${project.name} - ${version.name}`, '', project.code ? `專案代碼：${project.code}` : '', version.description ? `版本描述：${version.description}` : '', ''].filter(Boolean);
+      filteredLogs(version.logs).forEach(log => {
+        lines.push(`## ${log.title}`);
+        lines.push(`- 狀態：${log.status}`);
+        lines.push(`- 嚴重度：${log.severity}`);
+        lines.push(`- 標籤：${(log.tags || []).join(', ') || '無'}`);
+        lines.push(`- 時間：${new Date(log.timestamp).toLocaleString('zh-TW')}`);
+        if (log.conditions) lines.push(`\n### 測試條件\n${log.conditions}`);
+        lines.push(`\n### 問題描述\n${log.problem}`);
+        if (log.steps) lines.push(`\n### 步驟\n${log.steps}`);
+        if (log.observations) lines.push(`\n### 觀察\n${log.observations}`);
+        if (log.conclusion) lines.push(`\n### 結論\n${log.conclusion}`);
+        if ((log.attachments || []).length) lines.push(`\n附件：${log.attachments.map(a => a.name).join(', ')}`);
+        lines.push('');
+      });
+      downloadFile(`${project.name}_${version.name}.md`, lines.join('\n'), 'text/markdown;charset=utf-8');
+    }
+    function exportCsv() {
+      const project = getProject();
+      const version = getVersion();
+      if (!project || !version) return alert('請先選擇要匯出的版本。');
+      const header = ['project','version','title','status','severity','tags','conditions','problem','steps','observations','conclusion','attachments','timestamp'];
+      const rows = filteredLogs(version.logs).map(log => [
+        project.name, version.name, log.title, log.status, log.severity, (log.tags || []).join('|'),
+        log.conditions, log.problem, log.steps, log.observations, log.conclusion,
+        (log.attachments || []).map(a => a.name).join('|'), log.timestamp
+      ]);
+      const csv = '\ufeff' + [header, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
+      downloadFile(`${project.name}_${version.name}.csv`, csv, 'text/csv;charset=utf-8');
+    }
+    function exportPdf() {
+      const project = getProject();
+      const version = getVersion();
+      if (!project || !version) return alert('請先選擇要匯出的版本。');
+
+      const logs = filteredLogs(version.logs);
+      const includeImages = document.getElementById('pdfIncludeImages')?.checked !== false;
+      const now = new Date().toLocaleString('zh-TW');
+      const fileTitle = `${project.name} - ${version.name}`;
+      const logHtml = logs.length ? logs.map(log => {
+        const imageAttachments = includeImages ? (log.attachments || []).filter(isImageAttachment) : [];
+        const fileAttachments = (log.attachments || []).filter(a => includeImages ? !isImageAttachment(a) : true);
+        return `
+          <section class="log">
+            <div class="log-head">
+              <h2>${escapeHtml(log.title)}</h2>
+              <div class="badges">
+                <span>${escapeHtml(log.status || 'Open')}</span>
+                <span>${escapeHtml(log.severity || 'Medium')}</span>
+                ${(log.tags || []).map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}
+              </div>
+            </div>
+            <div class="meta">${new Date(log.timestamp).toLocaleString('zh-TW')}</div>
+            ${pdfSection('測試條件', log.conditions)}
+            ${pdfSection('問題描述', log.problem)}
+            ${pdfSection('重現 / 測試步驟', log.steps)}
+            ${pdfSection('觀察 / 量測結果', log.observations)}
+            ${pdfSection('結論 / 對策', log.conclusion)}
+            ${imageAttachments.length ? `<div class="images">${imageAttachments.map(a => `
+              <figure>
+                <img src="${a.dataUrl}" alt="${escapeHtml(a.name)}">
+                <figcaption>${escapeHtml(a.name)}</figcaption>
+              </figure>`).join('')}</div>` : ''}
+            ${fileAttachments.length ? `<div class="section"><h3>其他附件</h3><p>${fileAttachments.map(a => escapeHtml(a.name)).join('、')}</p></div>` : ''}
+          </section>`;
+      }).join('') : '<p class="empty">沒有符合目前篩選條件的紀錄。</p>';
+
+      const reportHtml = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>${escapeHtml(fileTitle)}</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif; color: #24292f; line-height: 1.55; }
+    .cover { border-bottom: 2px solid #30363d; padding-bottom: 12px; margin-bottom: 18px; }
+    h1 { font-size: 24px; margin: 0 0 6px; }
+    .subtitle, .meta { color: #57606a; font-size: 12px; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 20px; }
+    .stat { border: 1px solid #d0d7de; border-radius: 6px; padding: 8px; }
+    .stat strong { display: block; font-size: 20px; }
+    .stat span { color: #57606a; font-size: 12px; }
+    .log { page-break-inside: avoid; border-top: 1px solid #d0d7de; padding-top: 14px; margin-top: 16px; }
+    .log-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    h2 { font-size: 18px; margin: 0; }
+    h3 { font-size: 12px; color: #57606a; margin: 12px 0 4px; }
+    p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .badges { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+    .badges span { border: 1px solid #d0d7de; border-radius: 999px; padding: 2px 7px; font-size: 11px; white-space: nowrap; }
+    .images { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    figure { margin: 0; border: 1px solid #d0d7de; border-radius: 6px; padding: 6px; page-break-inside: avoid; }
+    figure img { display: block; width: 100%; max-height: 260px; object-fit: contain; }
+    figcaption { margin-top: 4px; color: #57606a; font-size: 11px; text-align: center; overflow-wrap: anywhere; }
+    .empty { color: #57606a; padding: 24px 0; }
+    @media print { button { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <h1>${escapeHtml(fileTitle)}</h1>
+    <div class="subtitle">${project.code ? `專案代碼：${escapeHtml(project.code)} · ` : ''}匯出時間：${escapeHtml(now)}</div>
+    ${project.description ? `<p style="margin-top:8px">${escapeHtml(project.description)}</p>` : ''}
+    ${version.description ? `<p style="margin-top:4px">${escapeHtml(version.description)}</p>` : ''}
+  </div>
+  <div class="summary">
+    ${pdfStat('總紀錄', version.logs.length)}
+    ${pdfStat('目前匯出', logs.length)}
+    ${pdfStat('未結案', version.logs.filter(l => ['Open', 'Investigating'].includes(l.status)).length)}
+    ${pdfStat('高風險', version.logs.filter(l => ['Critical', 'High'].includes(l.severity)).length)}
+  </div>
+  ${logHtml}
+  <script>
+    window.addEventListener('load', () => setTimeout(() => window.print(), 250));
+  <\/script>
+</body>
+</html>`;
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('瀏覽器阻擋了彈出視窗，請允許此頁開啟新視窗後再試一次。');
+        return;
+      }
+      printWindow.document.open();
+      printWindow.document.write(reportHtml);
+      printWindow.document.close();
+    }
+    function pdfSection(title, content) {
+      if (!content) return '';
+      return `<div class="section"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(content)}</p></div>`;
+    }
+    function pdfStat(label, value) {
+      return `<div class="stat"><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`;
+    }
+    function csvCell(value) {
+      return `"${String(value || '').replace(/"/g, '""')}"`;
+    }
+
+    window.addEventListener('beforeunload', e => {
+      if (!hasUnsavedChanges) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeImagePreview();
+        document.querySelectorAll('.modal-overlay.active').forEach(el => attemptCloseModal(el.id));
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (document.getElementById('logModal').classList.contains('active')) { e.preventDefault(); saveLog(); }
+        else if (document.getElementById('projectModal').classList.contains('active')) { e.preventDefault(); saveProject(); }
+        else if (document.getElementById('versionModal').classList.contains('active')) { e.preventDefault(); saveVersion(); }
+      }
+    });
+
+    checkAutosaveOnLoad();
+    renderAll();
+  </script>
+</body>
+</html>
