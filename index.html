@@ -24,7 +24,42 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      transition: background 0.15s, color 0.15s;
     }
+    body.light-theme {
+      --bg: #f6f8fa; --panel: #ffffff; --panel-2: #f6f8fa;
+      --line: #d0d7de; --muted: #57606a; --text: #24292f; --strong: #1b1f24;
+    }
+    body.light-theme .btn, body.light-theme .icon-btn, body.light-theme .tag-filter, body.light-theme .chip { background: #eaeef2; }
+    body.light-theme .btn:hover, body.light-theme .icon-btn:hover { background: #d0d7de; }
+    body.light-theme .list-item { background: #f6f8fa; border-color: #d0d7de; }
+    body.light-theme .list-item.active-proj { background: #1f6feb14; }
+    body.light-theme .list-item.active-ver { background: #23863614; }
+    body.light-theme .log-box { background: #eef1f4; }
+    body.light-theme .log-box-green { background: #2386360d; }
+    body.light-theme .attachment, body.light-theme .attachment-card { background: #ffffff; }
+    body.light-theme ::-webkit-scrollbar-track { background: #f6f8fa; }
+    body.light-theme ::-webkit-scrollbar-thumb { background: #d0d7de; }
+    body.light-theme .modal-overlay { background: rgba(27,31,36,0.4); }
+    mark { background: #ffd76a99; color: inherit; padding: 0 2px; border-radius: 2px; }
+    .dropzone {
+      border: 2px dashed var(--line); border-radius: 8px; padding: 16px;
+      text-align: center; color: var(--muted); font-size: 12px; cursor: pointer;
+      transition: 0.15s; margin-bottom: 8px;
+    }
+    .dropzone.dragover { border-color: #58a6ff; color: var(--text); background: #1f6feb11; }
+    .undo-toast {
+      display: none; position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+      background: #21262d; border: 1px solid var(--line); border-radius: 8px;
+      padding: 10px 12px 10px 16px; gap: 10px; align-items: center;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.45); z-index: 3000; font-size: 13px; color: #f0f6fc;
+    }
+    .undo-toast.show { display: flex; }
+    .measure-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .measure-table td { padding: 4px 8px; border-bottom: 1px solid #21262d; }
+    .measure-table td:first-child { color: var(--muted); white-space: nowrap; }
+    .filter-row-2 { display: flex; gap: 6px; }
+    .filter-row-2 input { flex: 1; }
     #app { max-width: 1280px; margin: 0 auto; padding: 20px; }
     .header {
       display: flex; justify-content: space-between; align-items: center;
@@ -248,6 +283,7 @@
       </div>
       <div class="toolbar">
         <span id="unsavedIndicator" class="unsaved">尚未儲存</span>
+        <button id="themeToggleBtn" class="icon-btn" onclick="toggleTheme()" title="切換淺色/深色模式">🌙</button>
         <button id="toggleSidebarBtn" class="btn" onclick="toggleSidebar()">篩選</button>
         <button class="btn-primary" onclick="saveToFile()">儲存 JSON</button>
         <button class="btn-blue" onclick="document.getElementById('openFile').click()">開啟 JSON</button>
@@ -329,7 +365,30 @@
               <option>Low</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>建立日期範圍</label>
+            <div class="filter-row-2">
+              <input type="date" id="dateFromFilter" onchange="renderLogs()">
+              <input type="date" id="dateToFilter" onchange="renderLogs()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="inline-check" style="font-size:13px;color:var(--text)">
+              <input type="checkbox" id="overdueFilter" onchange="renderLogs()">
+              只顯示逾期未結案（超過
+              <input type="number" id="overdueDaysInput" value="7" min="1" style="width:48px;padding:2px 4px;display:inline-block" onchange="renderLogs()">
+              天）
+            </label>
+          </div>
           <div class="tag-filters" id="tagFilters"></div>
+          <div class="form-group" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <label style="margin:0">常用篩選</label>
+              <button class="btn" style="padding:4px 8px;font-size:12px" onclick="saveCurrentFilter()">+ 儲存目前條件</button>
+            </div>
+            <div class="chip-row" id="savedFilterRow"></div>
+          </div>
+          <button class="btn" style="width:100%;margin-top:8px" onclick="clearFilters()">清除全部篩選</button>
         </div>
       </aside>
 
@@ -432,9 +491,24 @@
           </select>
         </div>
         <div class="form-group">
+          <label>韌體版本 / Commit</label>
+          <input type="text" id="logFirmware" placeholder="例如 fw-v2.3.1 / a1b2c3d">
+        </div>
+        <div class="form-group">
+          <label>Root Cause 分類</label>
+          <input type="text" id="logRootCause" list="rootCauseList" placeholder="例如 PCB Layout、料件選用...">
+          <datalist id="rootCauseList"></datalist>
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1">
           <label>附件</label>
-          <input type="file" id="logAttachments" multiple onchange="updateAttachmentSizeNote()">
-          <div class="helper">可加入示波器截圖、熱像圖、修改照片等。圖片會自動壓縮以縮小 JSON 體積。</div>
+          <div id="attachmentDropzone" class="dropzone"
+               ondragover="event.preventDefault();this.classList.add('dragover')"
+               ondragleave="this.classList.remove('dragover')"
+               ondrop="handleAttachmentDrop(event)"
+               onclick="document.getElementById('logAttachments').click()">
+            拖放檔案到這裡，或點擊選擇檔案（示波器截圖、熱像圖、修改照片等，圖片會自動壓縮）
+          </div>
+          <input type="file" id="logAttachments" multiple style="display:none" onchange="updateAttachmentSizeNote()">
           <div id="attachmentSizeNote" class="attachment-size-note"></div>
           <div id="existingAttachments" class="existing-attachments"></div>
         </div>
@@ -465,6 +539,12 @@
       <div class="form-group">
         <label>觀察 / 量測結果</label>
         <textarea id="logObservations" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>結構化量測數值（選填）</label>
+        <div id="measurementRows" class="tag-manage-list"></div>
+        <button class="btn" style="padding:6px 10px;font-size:12px" onclick="addMeasurementRow()">+ 新增數值</button>
+        <div class="helper">例如 Vout / 5.02 / V，會單獨顯示在紀錄卡片並可用於匯出。</div>
       </div>
       <div class="form-group">
         <label>結論 / 對策</label>
@@ -512,6 +592,12 @@
     </div>
   </div>
 
+  <div id="undoToast" class="undo-toast">
+    <span id="undoToastText"></span>
+    <button class="btn-blue" style="padding:6px 10px" onclick="performUndo()">復原</button>
+    <button class="icon-btn" onclick="dismissUndoToast()" title="關閉">×</button>
+  </div>
+
   <div id="imageLightbox" class="image-lightbox" onclick="if(event.target===this)closeImagePreview()">
     <button class="lightbox-close" onclick="closeImagePreview()" title="關閉">×</button>
     <img id="imageLightboxImg" alt="">
@@ -535,6 +621,9 @@
     const AUTOSAVE_KEY = 'hwdebug_autosave_v1';
     const MAX_IMAGE_DIMENSION = 1600;
     const IMAGE_QUALITY = 0.8;
+    const THEME_KEY = 'hwdebug_theme';
+    const SAVED_FILTERS_KEY = 'hwdebug_saved_filters_v1';
+    const DEFAULT_ROOT_CAUSES = ['PCB Layout', '料件選用', '韌體邏輯', 'EMI / 雜訊', '熱設計', '機構公差', '測試方法', '電源設計'];
 
     let data = { projects: [], tags: JSON.parse(JSON.stringify(DEFAULT_TAGS)) };
     let currentProjectId = null;
@@ -545,11 +634,15 @@
     let removedAttachmentIndexes = new Set();
     let expandedLogIds = new Set();
     let searchFilter = '';
-    let tagFilter = '';
+    let activeTagFilters = new Set();
+    let tagFilterMode = 'OR';
     let hasUnsavedChanges = false;
     let modalDirty = false;
     let autosaveTimer = null;
     let pendingTagRows = [];
+    let pendingMeasurementRows = [];
+    let savedFilters = [];
+    let undoState = null;
 
     function tagList() {
       if (!Array.isArray(data.tags) || !data.tags.length) data.tags = JSON.parse(JSON.stringify(DEFAULT_TAGS));
@@ -659,6 +752,9 @@
             l.attachments = l.attachments || [];
             l.timestamp = l.timestamp || new Date().toISOString();
             l.relatedLogId = l.relatedLogId || '';
+            l.firmwareVersion = l.firmwareVersion || '';
+            l.rootCause = l.rootCause || '';
+            l.measurements = Array.isArray(l.measurements) ? l.measurements : [];
           });
         });
       });
@@ -789,9 +885,16 @@
               problem: '5V 輸出 ripple 約 120mVpp，高於 50mVpp 目標。',
               steps: '1. 使用示波器 AC coupling 量測輸出\n2. Load sweep 0.5A 到 3A\n3. 比較不同輸出電容組合',
               observations: '主要雜訊頻率約 500kHz，增加 100uF bulk capacitor 後改善明顯。',
+              measurements: [
+                { label: 'Vout ripple（改前）', value: '120', unit: 'mVpp' },
+                { label: 'Vout ripple（改後）', value: '35', unit: 'mVpp' }
+              ],
               conclusion: '改為 100uF polymer + 4.7uF MLCC，ripple 降至 35mVpp。',
+              firmwareVersion: 'fw-v1.2.0 / a1b2c3d',
+              rootCause: '電源設計',
               attachments: [],
-              timestamp: new Date(Date.now() - 86400000).toISOString()
+              timestamp: new Date(Date.now() - 86400000).toISOString(),
+              updatedAt: new Date(Date.now() - 43200000).toISOString()
             }]
           }]
         }]
@@ -811,12 +914,29 @@
     }
     function renderTagControls() {
       const list = tagList();
-      document.getElementById('tagFilters').innerHTML = list.map(t =>
-        `<span class="tag-filter ${tagFilter === t.name ? 'active' : ''}" style="color:${t.color}" onclick="filterByTag('${t.name}')">${escapeHtml(t.name)}</span>`
+      const chips = list.map(t =>
+        `<span class="tag-filter ${activeTagFilters.has(t.name) ? 'active' : ''}" style="color:${t.color}" onclick="filterByTag('${t.name}')">${escapeHtml(t.name)}</span>`
       ).join('');
+      const modeToggle = activeTagFilters.size > 1
+        ? `<span class="tag-filter" style="border-style:dashed" onclick="toggleTagFilterMode()" title="切換多標籤篩選邏輯">模式：${tagFilterMode}</span>`
+        : '';
+      document.getElementById('tagFilters').innerHTML = chips + modeToggle;
       document.getElementById('logTagChecks').innerHTML = list.map(t =>
         `<label style="color:${t.color}"><input type="checkbox" class="log-tag" value="${escapeHtml(t.name)}"> ${escapeHtml(t.name)}</label>`
       ).join('');
+      populateRootCauseList();
+    }
+    function tagMatches(logTags) {
+      if (!activeTagFilters.size) return true;
+      const lt = logTags || [];
+      const wanted = Array.from(activeTagFilters);
+      return tagFilterMode === 'AND' ? wanted.every(t => lt.includes(t)) : wanted.some(t => lt.includes(t));
+    }
+    function populateRootCauseList() {
+      const set = new Set(DEFAULT_ROOT_CAUSES);
+      data.projects.forEach(p => p.versions.forEach(v => v.logs.forEach(l => { if (l.rootCause) set.add(l.rootCause); })));
+      const el = document.getElementById('rootCauseList');
+      if (el) el.innerHTML = Array.from(set).map(r => `<option value="${escapeHtml(r)}">`).join('');
     }
     function showTagManageModal() {
       pendingTagRows = JSON.parse(JSON.stringify(tagList()));
@@ -899,6 +1019,7 @@
       timeline.innerHTML = logs.map(log => {
         const date = new Date(log.timestamp);
         const dateStr = `${date.toLocaleDateString('zh-TW')} ${date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
+        const metaExtra = logMetaExtra(log);
         const tagsHtml = (log.tags || []).map(t => `<span class="tag" style="color:${tagColor(t)}">${escapeHtml(t)}</span>`).join('');
         const attachmentsHtml = renderAttachmentList(log.attachments || []);
         const isExpanded = expandedLogIds.has(log.id);
@@ -909,12 +1030,12 @@
               <div class="log-header">
                 <div>
                   <div class="log-title-row">
-                    <div class="log-title">${escapeHtml(log.title)}</div>
+                    <div class="log-title">${highlightMatch(log.title)}</div>
                     <span class="status" style="color:${statusColors[log.status] || '#8b949e'}">${escapeHtml(log.status)}</span>
                     <span class="severity" style="color:${severityColors[log.severity] || '#8b949e'}">${escapeHtml(log.severity)}</span>
                     ${tagsHtml}
                   </div>
-                  <div class="log-meta">${dateStr}</div>
+                  <div class="log-meta">${dateStr}${metaExtra ? ' · ' + escapeHtml(metaExtra) : ''}</div>
                 </div>
                 <div class="item-actions" ondblclick="event.stopPropagation()">
                   <button class="icon-btn" onclick="event.stopPropagation();showLogModal('${log.id}')" title="編輯">✎</button>
@@ -926,7 +1047,8 @@
                 ${sectionHtml('測試條件', log.conditions, '#58a6ff', true)}
                 ${sectionHtml('重現 / 測試步驟', log.steps, '#ffa657')}
                 ${sectionHtml('觀察 / 量測結果', log.observations, '#79c0ff')}
-                ${log.conclusion ? `<div class="log-section"><div class="log-box-green"><div class="log-section-label" style="color:#3fb950">結論 / 對策</div><div class="log-section-content">${escapeHtml(log.conclusion)}</div></div></div>` : ''}
+                ${measurementsHtml(log.measurements)}
+                ${log.conclusion ? `<div class="log-section"><div class="log-box-green"><div class="log-section-label" style="color:#3fb950">結論 / 對策</div><div class="log-section-content">${highlightMatch(log.conclusion)}</div></div></div>` : ''}
                 ${attachmentsHtml ? `<div class="log-section"><div class="log-section-label">附件</div>${attachmentsHtml}</div>` : ''}
                 ${relatedLogHtml(log)}
               </div>
@@ -948,8 +1070,19 @@
     }
     function sectionHtml(label, content, color, boxed = false) {
       if (!content) return '';
-      const inner = `<div class="log-section-label" style="color:${color}">${label}</div><div class="log-section-content">${escapeHtml(content)}</div>`;
+      const inner = `<div class="log-section-label" style="color:${color}">${label}</div><div class="log-section-content">${highlightMatch(content)}</div>`;
       return boxed ? `<div class="log-section"><div class="log-box">${inner}</div></div>` : `<div class="log-section">${inner}</div>`;
+    }
+    function measurementsHtml(measurements) {
+      if (!measurements || !measurements.length) return '';
+      const rows = measurements.map(m => `<tr><td>${escapeHtml(m.label)}</td><td>${escapeHtml(m.value)}${m.unit ? ' ' + escapeHtml(m.unit) : ''}</td></tr>`).join('');
+      return `<div class="log-section"><div class="log-section-label">結構化量測數值</div><table class="measure-table">${rows}</table></div>`;
+    }
+    function logMetaExtra(log) {
+      const parts = [];
+      if (log.firmwareVersion) parts.push(`FW: ${log.firmwareVersion}`);
+      if (log.rootCause) parts.push(`Root Cause: ${log.rootCause}`);
+      return parts.join(' · ');
     }
     function toggleLogExpanded(logId) {
       if (expandedLogIds.has(logId)) {
@@ -1033,14 +1166,16 @@
       const open = allLogs.filter(l => ['Open', 'Investigating'].includes(l.status)).length;
       const critical = allLogs.filter(l => ['Critical', 'High'].includes(l.severity)).length;
       const verified = allLogs.filter(l => l.status === 'Verified').length;
-      document.getElementById('statsGrid').innerHTML = [
-        ['總紀錄', allLogs.length],
-        ['未結案', open],
-        ['高風險', critical],
-        ['已驗證', verified || fixed]
-      ].map(([label, value]) => `<div class="stat"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`).join('');
+      const statsDefs = [
+        ['總紀錄', allLogs.length, ''],
+        ['未結案', open, ''],
+        ['高風險', critical, ''],
+        ['已驗證', verified || fixed, '']
+      ];
+      document.getElementById('statsGrid').innerHTML = statsDefs.map(([label, value, tip]) =>
+        `<div class="stat"${tip ? ` title="${escapeHtml(tip)}"` : ''}><div class="stat-value" style="${String(value).length > 8 ? 'font-size:15px' : ''}">${escapeHtml(String(value))}</div><div class="stat-label">${label}</div></div>`
+      ).join('');
     }
-
     function sortLogs(logs) {
       const order = document.getElementById('sortOrder')?.value || 'time_desc';
       const sorted = [...logs];
@@ -1054,11 +1189,18 @@
       const status = document.getElementById('statusFilter').value;
       const severity = document.getElementById('severityFilter').value;
       const s = searchFilter.toLowerCase();
+      const dateFrom = document.getElementById('dateFromFilter')?.value;
+      const dateTo = document.getElementById('dateToFilter')?.value;
+      const overdue = document.getElementById('overdueFilter')?.checked;
+      const overdueDays = parseInt(document.getElementById('overdueDaysInput')?.value, 10) || 7;
       return sortLogs(logs)
         .filter(l => !status || l.status === status)
         .filter(l => !severity || l.severity === severity)
-        .filter(l => !tagFilter || (l.tags || []).includes(tagFilter))
-        .filter(l => !s || [l.title, l.conditions, l.problem, l.steps, l.observations, l.conclusion].some(x => (x || '').toLowerCase().includes(s)));
+        .filter(l => tagMatches(l.tags))
+        .filter(l => !dateFrom || new Date(l.timestamp) >= new Date(dateFrom))
+        .filter(l => !dateTo || new Date(l.timestamp) <= new Date(dateTo + 'T23:59:59'))
+        .filter(l => !overdue || (['Open', 'Investigating'].includes(l.status) && (Date.now() - new Date(l.timestamp).getTime()) / 86400000 >= overdueDays))
+        .filter(l => !s || [l.title, l.conditions, l.problem, l.steps, l.observations, l.conclusion, l.firmwareVersion, l.rootCause].some(x => (x || '').toLowerCase().includes(s)));
     }
     function tagColor(name) {
       return (tagList().find(t => t.name === name) || {}).color || '#8b949e';
@@ -1129,14 +1271,54 @@
       document.getElementById('logSteps').value = log?.steps || '';
       document.getElementById('logObservations').value = log?.observations || '';
       document.getElementById('logConclusion').value = log?.conclusion || '';
+      document.getElementById('logFirmware').value = log?.firmwareVersion || '';
+      document.getElementById('logRootCause').value = log?.rootCause || '';
       document.getElementById('logAttachments').value = '';
       document.querySelectorAll('.log-tag').forEach(cb => cb.checked = (log?.tags || []).includes(cb.value));
+      pendingMeasurementRows = JSON.parse(JSON.stringify(log?.measurements || []));
+      renderMeasurementRows();
       renderExistingAttachments(log);
       updateAttachmentSizeNote();
       populateRelatedLogSelect(log);
+      populateRootCauseList();
       renderModalTagChecks(log);
       modalDirty = false;
       document.getElementById('logModal').classList.add('active');
+    }
+    function renderMeasurementRows() {
+      document.getElementById('measurementRows').innerHTML = pendingMeasurementRows.map((m, i) => `
+        <div class="tag-manage-row">
+          <input type="text" placeholder="項目（例如 Vout）" value="${escapeHtml(m.label)}" oninput="pendingMeasurementRows[${i}].label=this.value;modalDirty=true" style="flex:2">
+          <input type="text" placeholder="數值" value="${escapeHtml(m.value)}" oninput="pendingMeasurementRows[${i}].value=this.value;modalDirty=true" style="flex:1">
+          <input type="text" placeholder="單位" value="${escapeHtml(m.unit)}" oninput="pendingMeasurementRows[${i}].unit=this.value;modalDirty=true" style="flex:1">
+          <button class="icon-btn danger" onclick="removeMeasurementRow(${i})" title="刪除">×</button>
+        </div>`).join('') || '<div class="helper">尚未加入任何量測數值。</div>';
+    }
+    function addMeasurementRow() {
+      pendingMeasurementRows.push({ label: '', value: '', unit: '' });
+      modalDirty = true;
+      renderMeasurementRows();
+    }
+    function removeMeasurementRow(index) {
+      pendingMeasurementRows.splice(index, 1);
+      modalDirty = true;
+      renderMeasurementRows();
+    }
+    function collectMeasurementRows() {
+      return pendingMeasurementRows
+        .map(m => ({ label: (m.label || '').trim(), value: (m.value || '').trim(), unit: (m.unit || '').trim() }))
+        .filter(m => m.label || m.value);
+    }
+    function handleAttachmentDrop(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('dragover');
+      const input = document.getElementById('logAttachments');
+      const combined = new DataTransfer();
+      Array.from(input.files || []).forEach(f => combined.items.add(f));
+      Array.from(e.dataTransfer.files || []).forEach(f => combined.items.add(f));
+      input.files = combined.files;
+      modalDirty = true;
+      updateAttachmentSizeNote();
     }
     function renderModalTagChecks(log) {
       // ensures freshly added custom tags are reflected even mid-session
@@ -1236,6 +1418,9 @@
         steps: document.getElementById('logSteps').value.trim(),
         observations: document.getElementById('logObservations').value.trim(),
         conclusion: document.getElementById('logConclusion').value.trim(),
+        firmwareVersion: document.getElementById('logFirmware').value.trim(),
+        rootCause: document.getElementById('logRootCause').value.trim(),
+        measurements: collectMeasurementRows(),
         relatedLogId: document.getElementById('logRelated').value,
         attachments: [...keptAttachments, ...newAttachments],
         timestamp: oldLog?.timestamp || new Date().toISOString(),
@@ -1251,6 +1436,7 @@
       closeModal('logModal');
       renderLogs();
       renderVersions();
+      populateRootCauseList();
     }
     function readAttachments(fileList) {
       const files = Array.from(fileList || []);
@@ -1334,40 +1520,81 @@
       renderVersions();
     }
     function deleteProject(id) {
-      const p = data.projects.find(x => x.id === id);
-      if (!p) return;
-      const logCount = p.versions.reduce((sum, v) => sum + v.logs.length, 0);
-      if (!confirm(`確定刪除專案「${p.name}」？\n包含 ${p.versions.length} 個版本、${logCount} 筆紀錄。`)) return;
-      data.projects = data.projects.filter(x => x.id !== id);
-      if (currentProjectId === id) {
+      const index = data.projects.findIndex(x => x.id === id);
+      if (index === -1) return;
+      const [removed] = data.projects.splice(index, 1);
+      const logCount = removed.versions.reduce((sum, v) => sum + v.logs.length, 0);
+      const wasSelected = currentProjectId === id;
+      if (wasSelected) {
         currentProjectId = null;
         currentVersionId = null;
         hideLogView();
       }
       markUnsaved();
       renderAll();
+      showUndoToast(`已刪除專案「${removed.name}」（含 ${removed.versions.length} 個版本、${logCount} 筆紀錄）`, () => {
+        data.projects.splice(index, 0, removed);
+        if (wasSelected) selectProject(removed.id);
+        markUnsaved();
+        renderAll();
+      });
     }
     function deleteVersion(id) {
       const project = getProject();
-      const v = project?.versions.find(x => x.id === id);
-      if (!v) return;
-      if (!confirm(`確定刪除版本「${v.name}」？\n包含 ${v.logs.length} 筆紀錄。`)) return;
-      project.versions = project.versions.filter(x => x.id !== id);
-      if (currentVersionId === id) {
+      if (!project) return;
+      const index = project.versions.findIndex(x => x.id === id);
+      if (index === -1) return;
+      const [removed] = project.versions.splice(index, 1);
+      const wasSelected = currentVersionId === id;
+      if (wasSelected) {
         currentVersionId = null;
         document.getElementById('emptyState').style.display = 'block';
         document.getElementById('logView').style.display = 'none';
       }
       markUnsaved();
       renderVersions();
+      showUndoToast(`已刪除版本「${removed.name}」（含 ${removed.logs.length} 筆紀錄）`, () => {
+        project.versions.splice(index, 0, removed);
+        if (wasSelected) selectVersion(removed.id);
+        markUnsaved();
+        renderVersions();
+      });
     }
     function deleteLog(id) {
-      if (!confirm('確定刪除這筆紀錄？')) return;
       const version = getVersion();
-      version.logs = version.logs.filter(x => x.id !== id);
+      if (!version) return;
+      const index = version.logs.findIndex(x => x.id === id);
+      if (index === -1) return;
+      const [removed] = version.logs.splice(index, 1);
       markUnsaved();
       renderLogs();
       renderVersions();
+      showUndoToast(`已刪除紀錄「${removed.title}」`, () => {
+        version.logs.splice(index, 0, removed);
+        markUnsaved();
+        renderLogs();
+        renderVersions();
+      });
+    }
+    function showUndoToast(text, restoreFn) {
+      if (undoState?.timer) clearTimeout(undoState.timer);
+      undoState = { restoreFn, timer: setTimeout(() => { undoState = null; hideUndoToast(); }, 8000) };
+      document.getElementById('undoToastText').textContent = text;
+      document.getElementById('undoToast').classList.add('show');
+    }
+    function hideUndoToast() {
+      document.getElementById('undoToast').classList.remove('show');
+    }
+    function performUndo() {
+      if (undoState?.timer) clearTimeout(undoState.timer);
+      if (undoState?.restoreFn) undoState.restoreFn();
+      undoState = null;
+      hideUndoToast();
+    }
+    function dismissUndoToast() {
+      if (undoState?.timer) clearTimeout(undoState.timer);
+      undoState = null;
+      hideUndoToast();
     }
 
     function searchLogs() {
@@ -1394,14 +1621,21 @@
       const status = document.getElementById('statusFilter').value;
       const severity = document.getElementById('severityFilter').value;
       const s = searchFilter.toLowerCase();
+      const dateFrom = document.getElementById('dateFromFilter')?.value;
+      const dateTo = document.getElementById('dateToFilter')?.value;
+      const overdue = document.getElementById('overdueFilter')?.checked;
+      const overdueDays = parseInt(document.getElementById('overdueDaysInput')?.value, 10) || 7;
       let matches = [];
       data.projects.forEach(p => {
         p.versions.forEach(v => {
           v.logs.forEach(l => {
             if (status && l.status !== status) return;
             if (severity && l.severity !== severity) return;
-            if (tagFilter && !(l.tags || []).includes(tagFilter)) return;
-            if (s && ![l.title, l.conditions, l.problem, l.steps, l.observations, l.conclusion].some(x => (x || '').toLowerCase().includes(s))) return;
+            if (!tagMatches(l.tags)) return;
+            if (dateFrom && new Date(l.timestamp) < new Date(dateFrom)) return;
+            if (dateTo && new Date(l.timestamp) > new Date(dateTo + 'T23:59:59')) return;
+            if (overdue && !(['Open', 'Investigating'].includes(l.status) && (Date.now() - new Date(l.timestamp).getTime()) / 86400000 >= overdueDays)) return;
+            if (s && ![l.title, l.conditions, l.problem, l.steps, l.observations, l.conclusion, l.firmwareVersion, l.rootCause].some(x => (x || '').toLowerCase().includes(s))) return;
             matches.push({ log: l, project: p, version: v });
           });
         });
@@ -1416,6 +1650,7 @@
       container.innerHTML = matches.map(({ log, project, version }) => {
         const date = new Date(log.timestamp);
         const dateStr = `${date.toLocaleDateString('zh-TW')} ${date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
+        const metaExtra = logMetaExtra(log);
         const tagsHtml = (log.tags || []).map(t => `<span class="tag" style="color:${tagColor(t)}">${escapeHtml(t)}</span>`).join('');
         return `
           <div class="timeline-item">
@@ -1424,12 +1659,12 @@
               <div class="log-header">
                 <div>
                   <div class="log-title-row">
-                    <div class="log-title">${escapeHtml(log.title)}</div>
+                    <div class="log-title">${highlightMatch(log.title)}</div>
                     <span class="status" style="color:${statusColors[log.status] || '#8b949e'}">${escapeHtml(log.status)}</span>
                     <span class="severity" style="color:${severityColors[log.severity] || '#8b949e'}">${escapeHtml(log.severity)}</span>
                     ${tagsHtml}
                   </div>
-                  <div class="log-meta">${escapeHtml(project.name)} / ${escapeHtml(version.name)} · ${dateStr}</div>
+                  <div class="log-meta">${escapeHtml(project.name)} / ${escapeHtml(version.name)} · ${dateStr}${metaExtra ? ' · ' + escapeHtml(metaExtra) : ''}</div>
                 </div>
               </div>
               ${sectionHtml('問題描述', log.problem, '#ff7b72')}
@@ -1450,9 +1685,99 @@
       }, 50);
     }
     function filterByTag(tag) {
-      tagFilter = tagFilter === tag ? '' : tag;
+      if (activeTagFilters.has(tag)) activeTagFilters.delete(tag);
+      else activeTagFilters.add(tag);
       renderTagControls();
-      if (currentVersionId) renderLogs();
+      applyActiveView();
+    }
+    function toggleTagFilterMode() {
+      tagFilterMode = tagFilterMode === 'OR' ? 'AND' : 'OR';
+      renderTagControls();
+      applyActiveView();
+    }
+    function applyActiveView() {
+      if (document.getElementById('globalSearchToggle').checked) renderGlobalSearch();
+      else if (currentVersionId) renderLogs();
+    }
+    function clearFilters() {
+      document.getElementById('statusFilter').value = '';
+      document.getElementById('severityFilter').value = '';
+      document.getElementById('dateFromFilter').value = '';
+      document.getElementById('dateToFilter').value = '';
+      document.getElementById('overdueFilter').checked = false;
+      document.getElementById('overdueDaysInput').value = 7;
+      document.getElementById('searchInput').value = '';
+      searchFilter = '';
+      activeTagFilters = new Set();
+      tagFilterMode = 'OR';
+      renderTagControls();
+      searchLogs();
+    }
+    function currentFilterState() {
+      return {
+        status: document.getElementById('statusFilter').value,
+        severity: document.getElementById('severityFilter').value,
+        tags: Array.from(activeTagFilters),
+        tagMode: tagFilterMode,
+        dateFrom: document.getElementById('dateFromFilter').value,
+        dateTo: document.getElementById('dateToFilter').value,
+        overdue: document.getElementById('overdueFilter').checked,
+        overdueDays: parseInt(document.getElementById('overdueDaysInput').value, 10) || 7,
+        search: searchFilter
+      };
+    }
+    function saveCurrentFilter() {
+      const name = prompt('為目前的篩選條件命名：');
+      if (!name || !name.trim()) return;
+      savedFilters.push({ id: uid('flt'), name: name.trim(), state: currentFilterState() });
+      persistSavedFilters();
+      renderSavedFilters();
+    }
+    function applySavedFilter(id) {
+      const f = savedFilters.find(x => x.id === id);
+      if (!f) return;
+      const s = f.state;
+      document.getElementById('statusFilter').value = s.status || '';
+      document.getElementById('severityFilter').value = s.severity || '';
+      document.getElementById('dateFromFilter').value = s.dateFrom || '';
+      document.getElementById('dateToFilter').value = s.dateTo || '';
+      document.getElementById('overdueFilter').checked = !!s.overdue;
+      document.getElementById('overdueDaysInput').value = s.overdueDays || 7;
+      document.getElementById('searchInput').value = s.search || '';
+      searchFilter = s.search || '';
+      activeTagFilters = new Set(s.tags || []);
+      tagFilterMode = s.tagMode || 'OR';
+      renderTagControls();
+      searchLogs();
+    }
+    function deleteSavedFilter(id, ev) {
+      if (ev) ev.stopPropagation();
+      savedFilters = savedFilters.filter(x => x.id !== id);
+      persistSavedFilters();
+      renderSavedFilters();
+    }
+    function persistSavedFilters() {
+      try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(savedFilters)); } catch (err) { /* ignore */ }
+    }
+    function loadSavedFilters() {
+      try { savedFilters = JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]'); } catch (err) { savedFilters = []; }
+    }
+    function renderSavedFilters() {
+      const el = document.getElementById('savedFilterRow');
+      if (!el) return;
+      el.innerHTML = savedFilters.length
+        ? savedFilters.map(f => `<span class="chip" onclick="applySavedFilter('${f.id}')">${escapeHtml(f.name)} <span onclick="deleteSavedFilter('${f.id}', event)" style="opacity:.65">×</span></span>`).join('')
+        : '<span class="helper" style="margin:0">尚無已儲存的篩選</span>';
+    }
+    function highlightMatch(text) {
+      const escaped = escapeHtml(text || '');
+      if (!searchFilter) return escaped;
+      const term = searchFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      try {
+        return escaped.replace(new RegExp(`(${term})`, 'ig'), '<mark>$1</mark>');
+      } catch (err) {
+        return escaped;
+      }
     }
     function allVersionOptions() {
       const opts = [];
@@ -1505,6 +1830,21 @@
           <div class="compare-col"><h4>${escapeHtml(b.label)}</h4>${rows.map(r => `<div class="compare-stat-row"><span>${r[0]}</span><span>${r[2]} (${deltaSpan(r[1], r[2], r[3])})</span></div>`).join('')}</div>
         </div>`;
     }
+    function initTheme() {
+      let saved = null;
+      try { saved = localStorage.getItem(THEME_KEY); } catch (err) { /* ignore */ }
+      if (saved === 'light') document.body.classList.add('light-theme');
+      updateThemeIcon();
+    }
+    function toggleTheme() {
+      document.body.classList.toggle('light-theme');
+      try { localStorage.setItem(THEME_KEY, document.body.classList.contains('light-theme') ? 'light' : 'dark'); } catch (err) { /* ignore */ }
+      updateThemeIcon();
+    }
+    function updateThemeIcon() {
+      const btn = document.getElementById('themeToggleBtn');
+      if (btn) btn.textContent = document.body.classList.contains('light-theme') ? '☀️' : '🌙';
+    }
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open');
     }
@@ -1520,10 +1860,13 @@
         lines.push(`- 嚴重度：${log.severity}`);
         lines.push(`- 標籤：${(log.tags || []).join(', ') || '無'}`);
         lines.push(`- 時間：${new Date(log.timestamp).toLocaleString('zh-TW')}`);
+        if (log.firmwareVersion) lines.push(`- 韌體版本 / Commit：${log.firmwareVersion}`);
+        if (log.rootCause) lines.push(`- Root Cause：${log.rootCause}`);
         if (log.conditions) lines.push(`\n### 測試條件\n${log.conditions}`);
         lines.push(`\n### 問題描述\n${log.problem}`);
         if (log.steps) lines.push(`\n### 步驟\n${log.steps}`);
         if (log.observations) lines.push(`\n### 觀察\n${log.observations}`);
+        if ((log.measurements || []).length) lines.push(`\n### 結構化量測數值\n${log.measurements.map(m => `- ${m.label}：${m.value}${m.unit ? ' ' + m.unit : ''}`).join('\n')}`);
         if (log.conclusion) lines.push(`\n### 結論\n${log.conclusion}`);
         if ((log.attachments || []).length) lines.push(`\n附件：${log.attachments.map(a => a.name).join(', ')}`);
         lines.push('');
@@ -1534,10 +1877,13 @@
       const project = getProject();
       const version = getVersion();
       if (!project || !version) return alert('請先選擇要匯出的版本。');
-      const header = ['project','version','title','status','severity','tags','conditions','problem','steps','observations','conclusion','attachments','timestamp'];
+      const header = ['project','version','title','status','severity','tags','firmware_version','root_cause','conditions','problem','steps','observations','measurements','conclusion','attachments','timestamp'];
       const rows = filteredLogs(version.logs).map(log => [
         project.name, version.name, log.title, log.status, log.severity, (log.tags || []).join('|'),
-        log.conditions, log.problem, log.steps, log.observations, log.conclusion,
+        log.firmwareVersion || '', log.rootCause || '',
+        log.conditions, log.problem, log.steps, log.observations,
+        (log.measurements || []).map(m => `${m.label}=${m.value}${m.unit ? ' ' + m.unit : ''}`).join('|'),
+        log.conclusion,
         (log.attachments || []).map(a => a.name).join('|'), log.timestamp
       ]);
       const csv = '\ufeff' + [header, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
@@ -1565,11 +1911,12 @@
                 ${(log.tags || []).map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}
               </div>
             </div>
-            <div class="meta">${new Date(log.timestamp).toLocaleString('zh-TW')}</div>
+            <div class="meta">${new Date(log.timestamp).toLocaleString('zh-TW')}${log.firmwareVersion ? ` · FW: ${escapeHtml(log.firmwareVersion)}` : ''}${log.rootCause ? ` · Root Cause: ${escapeHtml(log.rootCause)}` : ''}</div>
             ${pdfSection('測試條件', log.conditions)}
             ${pdfSection('問題描述', log.problem)}
             ${pdfSection('重現 / 測試步驟', log.steps)}
             ${pdfSection('觀察 / 量測結果', log.observations)}
+            ${(log.measurements || []).length ? `<div class="section"><h3>結構化量測數值</h3><p>${log.measurements.map(m => `${escapeHtml(m.label)}：${escapeHtml(m.value)}${m.unit ? ' ' + escapeHtml(m.unit) : ''}`).join('　')}</p></div>` : ''}
             ${pdfSection('結論 / 對策', log.conclusion)}
             ${imageAttachments.length ? `<div class="images">${imageAttachments.map(a => `
               <figure>
@@ -1659,14 +2006,32 @@
       if (e.key === 'Escape') {
         closeImagePreview();
         document.querySelectorAll('.modal-overlay.active').forEach(el => attemptCloseModal(el.id));
+        dismissUndoToast();
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         if (document.getElementById('logModal').classList.contains('active')) { e.preventDefault(); saveLog(); }
         else if (document.getElementById('projectModal').classList.contains('active')) { e.preventDefault(); saveProject(); }
         else if (document.getElementById('versionModal').classList.contains('active')) { e.preventDefault(); saveVersion(); }
+        return;
+      }
+      const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+      const anyModalOpen = document.querySelector('.modal-overlay.active');
+      if (isTyping || anyModalOpen) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+      } else if (e.key.toLowerCase() === 'n' && currentVersionId) {
+        e.preventDefault();
+        showLogModal();
+      } else if (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey) && undoState) {
+        e.preventDefault();
+        performUndo();
       }
     });
 
+    initTheme();
+    loadSavedFilters();
+    renderSavedFilters();
     checkAutosaveOnLoad();
     renderAll();
   </script>
