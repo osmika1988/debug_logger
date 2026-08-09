@@ -266,6 +266,24 @@
     .compare-stat-row .delta-down { color: var(--green); }
     .attachment-size-note { color: var(--muted); font-size: 11px; margin-top: 4px; }
     .related-tag { display: inline-flex; align-items: center; gap: 4px; color: #79c0ff; font-size: 11px; cursor: pointer; text-decoration: underline; }
+    .import-summary { color: var(--muted); font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+    .import-select-toolbar {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .import-project-list {
+      display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto;
+      border: 1px solid var(--line); border-radius: 7px; padding: 8px; background: var(--panel-2);
+    }
+    .import-project-row {
+      display: flex; align-items: flex-start; gap: 10px; padding: 10px;
+      border: 1px solid #21262d; border-radius: 7px; background: var(--panel);
+    }
+    .import-project-row input { width: auto; margin-top: 2px; }
+    .import-project-info { flex: 1; min-width: 0; }
+    .import-project-title { color: var(--strong); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+    .import-project-meta { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.5; }
+    .import-duplicate { color: var(--orange); font-size: 12px; margin-top: 4px; }
     @media (max-width: 860px) {
       .compare-grid { grid-template-columns: 1fr; }
     }
@@ -592,6 +610,26 @@
     </div>
   </div>
 
+  <div id="importProjectsModal" class="modal-overlay" onclick="if(event.target===this)closeImportProjectsModal()">
+    <div class="modal wide">
+      <h3>選擇要匯入的專案</h3>
+      <div id="importProjectsSummary" class="import-summary"></div>
+      <div class="import-select-toolbar">
+        <label class="inline-check" style="font-size:13px;color:var(--text)">
+          <input type="checkbox" id="importSelectAll" onchange="setAllImportProjects(this.checked)">
+          全部選取
+        </label>
+        <span id="importSelectedCount" class="helper" style="margin:0"></span>
+      </div>
+      <div id="importProjectList" class="import-project-list"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeImportProjectsModal()">取消</button>
+        <button class="btn-blue" onclick="setAllImportProjects(true); confirmImportSelectedProjects(true)">全部匯入</button>
+        <button class="btn-primary" onclick="confirmImportSelectedProjects()">匯入勾選專案</button>
+      </div>
+    </div>
+  </div>
+
   <div id="undoToast" class="undo-toast">
     <span id="undoToastText"></span>
     <button class="btn-blue" style="padding:6px 10px" onclick="performUndo()">復原</button>
@@ -643,6 +681,7 @@
     let pendingMeasurementRows = [];
     let savedFilters = [];
     let undoState = null;
+    let pendingProjectImport = null;
 
     function tagList() {
       if (!Array.isArray(data.tags) || !data.tags.length) data.tags = JSON.parse(JSON.stringify(DEFAULT_TAGS));
@@ -808,33 +847,107 @@
             alert('這個 JSON 沒有可匯入的專案。');
             return;
           }
-          const existingKeys = new Set(data.projects.map(p => `${p.name}::${p.code || ''}`));
-          const toImport = [];
-          let skipped = 0;
-          for (const proj of importedData.projects) {
-            const key = `${proj.name}::${proj.code || ''}`;
-            if (existingKeys.has(key)) {
-              const choice = confirm(`專案「${proj.name}」${proj.code ? `（${proj.code}）` : ''}似乎已存在，按「確定」仍要匯入為新專案（會標註 [匯入]），按「取消」則略過此專案。`);
-              if (!choice) { skipped++; continue; }
-              proj.name = `${proj.name} [匯入]`;
-            }
-            toImport.push(proj);
-          }
-          const projectsToAdd = toImport.map(cloneImportedProject);
-          if (!projectsToAdd.length) {
-            alert(skipped ? `已略過 ${skipped} 個重複專案，沒有新增任何專案。` : '這個 JSON 沒有可匯入的專案。');
-            return;
-          }
-          data.projects.push(...projectsToAdd);
-          markUnsaved();
-          renderAll();
-          alert(`已從 ${file.name} 匯入 ${projectsToAdd.length} 個專案。${skipped ? `（略過 ${skipped} 個重複）` : ''}`);
+          pendingProjectImport = {
+            fileName: file.name,
+            projects: importedData.projects
+          };
+          showImportProjectsModal();
         } catch (err) {
           alert(`匯入專案失敗：${err.message}`);
         }
       };
       reader.readAsText(file);
       input.value = '';
+    }
+    function showImportProjectsModal() {
+      if (!pendingProjectImport) return;
+      renderImportProjectSelection();
+      document.getElementById('importProjectsModal').classList.add('active');
+    }
+    function renderImportProjectSelection() {
+      const projects = pendingProjectImport?.projects || [];
+      const existingKeys = new Set(data.projects.map(p => `${p.name}::${p.code || ''}`));
+      document.getElementById('importProjectsSummary').textContent =
+        `來源檔案：${pendingProjectImport.fileName}，共找到 ${projects.length} 個專案。`;
+      document.getElementById('importProjectList').innerHTML = projects.map((proj, index) => {
+        const versionCount = (proj.versions || []).length;
+        const logCount = (proj.versions || []).reduce((sum, version) => sum + (version.logs || []).length, 0);
+        const isDuplicate = existingKeys.has(`${proj.name}::${proj.code || ''}`);
+        return `
+          <label class="import-project-row">
+            <input type="checkbox" class="import-project-check" value="${index}" checked onchange="updateImportSelectionState()">
+            <span class="import-project-info">
+              <span class="import-project-title">${escapeHtml(proj.name)}${proj.code ? ` (${escapeHtml(proj.code)})` : ''}</span>
+              <span class="import-project-meta">${versionCount} 個版本，${logCount} 筆紀錄${proj.description ? ` · ${escapeHtml(proj.description)}` : ''}</span>
+              ${isDuplicate ? '<span class="import-duplicate">此專案名稱與代碼似乎已存在，匯入時會再詢問是否改名加入。</span>' : ''}
+            </span>
+          </label>`;
+      }).join('');
+      setAllImportProjects(true);
+    }
+    function updateImportSelectionState() {
+      const checks = Array.from(document.querySelectorAll('.import-project-check'));
+      const selected = checks.filter(check => check.checked).length;
+      const selectAll = document.getElementById('importSelectAll');
+      selectAll.checked = checks.length > 0 && selected === checks.length;
+      selectAll.indeterminate = selected > 0 && selected < checks.length;
+      document.getElementById('importSelectedCount').textContent = `已選 ${selected} / ${checks.length} 個專案`;
+    }
+    function setAllImportProjects(checked) {
+      document.querySelectorAll('.import-project-check').forEach(check => {
+        check.checked = checked;
+      });
+      updateImportSelectionState();
+    }
+    function selectedImportProjectIndexes() {
+      return Array.from(document.querySelectorAll('.import-project-check'))
+        .filter(check => check.checked)
+        .map(check => Number(check.value))
+        .filter(index => Number.isInteger(index));
+    }
+    function confirmImportSelectedProjects(importAll = false) {
+      if (!pendingProjectImport) return;
+      if (importAll) setAllImportProjects(true);
+      const selectedIndexes = selectedImportProjectIndexes();
+      if (!selectedIndexes.length) {
+        alert('請至少勾選一個要匯入的專案。');
+        return;
+      }
+      const existingKeys = new Set(data.projects.map(p => `${p.name}::${p.code || ''}`));
+      const toImport = [];
+      let skipped = 0;
+      for (const index of selectedIndexes) {
+        const sourceProject = pendingProjectImport.projects[index];
+        if (!sourceProject) continue;
+        const proj = JSON.parse(JSON.stringify(sourceProject));
+        const key = `${proj.name}::${proj.code || ''}`;
+        if (existingKeys.has(key)) {
+          const choice = confirm(`專案「${proj.name}」${proj.code ? `（${proj.code}）` : ''}似乎已存在，按「確定」仍要匯入為新專案（會標註 [匯入]），按「取消」則略過此專案。`);
+          if (!choice) { skipped++; continue; }
+          proj.name = `${proj.name} [匯入]`;
+        }
+        toImport.push(proj);
+      }
+      const projectsToAdd = toImport.map(cloneImportedProject);
+      if (!projectsToAdd.length) {
+        alert(skipped ? `已略過 ${skipped} 個重複專案，沒有新增任何專案。` : '沒有新增任何專案。');
+        return;
+      }
+      data.projects.push(...projectsToAdd);
+      const fileName = pendingProjectImport.fileName;
+      closeImportProjectsModal();
+      markUnsaved();
+      renderAll();
+      alert(`已從 ${fileName} 匯入 ${projectsToAdd.length} 個專案。${skipped ? `（略過 ${skipped} 個重複）` : ''}`);
+    }
+    function closeImportProjectsModal() {
+      closeModal('importProjectsModal');
+      pendingProjectImport = null;
+      document.getElementById('importProjectList').innerHTML = '';
+      document.getElementById('importProjectsSummary').textContent = '';
+      document.getElementById('importSelectedCount').textContent = '';
+      document.getElementById('importSelectAll').indeterminate = false;
+      document.getElementById('importSelectAll').checked = false;
     }
     function cloneImportedProject(project) {
       const copy = JSON.parse(JSON.stringify(project));
@@ -2005,7 +2118,10 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         closeImagePreview();
-        document.querySelectorAll('.modal-overlay.active').forEach(el => attemptCloseModal(el.id));
+        document.querySelectorAll('.modal-overlay.active').forEach(el => {
+          if (el.id === 'importProjectsModal') closeImportProjectsModal();
+          else attemptCloseModal(el.id);
+        });
         dismissUndoToast();
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
