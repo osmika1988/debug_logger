@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'nonce-VUaYmJgJj3n50tDKMFFA9Kg38-nFmM8L' 'self'; script-src-attr 'none'; trusted-types default; require-trusted-types-for 'script'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'; frame-src 'none'; media-src 'self' data: blob:; worker-src 'self' blob:;">
   <title>硬體 Debug Logger</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -301,27 +302,27 @@
       </div>
       <div class="toolbar">
         <span id="unsavedIndicator" class="unsaved">尚未儲存</span>
-        <button id="themeToggleBtn" class="icon-btn" onclick="toggleTheme()" title="切換淺色/深色模式">🌙</button>
-        <button id="toggleSidebarBtn" class="btn" onclick="toggleSidebar()">篩選</button>
-        <button class="btn-primary" onclick="saveToFile()">儲存 JSON</button>
-        <button class="btn-blue" onclick="document.getElementById('openFile').click()">開啟 JSON</button>
-        <input type="file" id="openFile" accept=".json" style="display:none" onchange="openFromFile(this)">
-        <button class="btn" onclick="exportMarkdown()">匯出 Markdown</button>
-        <button class="btn" onclick="exportCsv()">匯出 CSV</button>
-        <button class="btn" onclick="exportPdf()">匯出 PDF</button>
+        <button id="themeToggleBtn" class="icon-btn" data-csp-onclick="toggleTheme()" title="切換淺色/深色模式">🌙</button>
+        <button id="toggleSidebarBtn" class="btn" data-csp-onclick="toggleSidebar()">篩選</button>
+        <button class="btn-primary" data-csp-onclick="saveToFile()">儲存 JSON</button>
+        <button class="btn-blue" data-csp-onclick="document.getElementById('openFile').click()">開啟 JSON</button>
+        <input type="file" id="openFile" accept=".json" style="display:none" data-csp-onchange="openFromFile(this)">
+        <button class="btn" data-csp-onclick="exportMarkdown()">匯出 Markdown</button>
+        <button class="btn" data-csp-onclick="exportCsv()">匯出 CSV</button>
+        <button class="btn" data-csp-onclick="exportPdf()">匯出 PDF</button>
         <label class="inline-check" title="匯出 PDF 時是否包含圖片附件"><input type="checkbox" id="pdfIncludeImages" checked> 含圖片</label>
-        <button class="btn" onclick="showTagManageModal()">管理標籤</button>
-        <button class="btn" onclick="showCompareModal()">比較版本</button>
-        <button class="btn" onclick="loadDemoData()">載入範例</button>
-        <button class="btn" onclick="newProjectData()">新檔案</button>
+        <button class="btn" data-csp-onclick="showTagManageModal()">管理標籤</button>
+        <button class="btn" data-csp-onclick="showCompareModal()">比較版本</button>
+        <button class="btn" data-csp-onclick="loadDemoData()">載入範例</button>
+        <button class="btn" data-csp-onclick="newProjectData()">新檔案</button>
       </div>
     </div>
 
     <div id="draftBanner" class="draft-banner">
       <span id="draftBannerText">偵測到未儲存的自動備份。</span>
       <div class="actions">
-        <button class="btn-blue" onclick="restoreAutosave()">還原備份</button>
-        <button class="btn" onclick="dismissAutosave()">忽略</button>
+        <button class="btn-blue" data-csp-onclick="restoreAutosave()">還原備份</button>
+        <button class="btn" data-csp-onclick="dismissAutosave()">忽略</button>
       </div>
     </div>
 
@@ -331,9 +332,9 @@
           <div class="card-header">
             <h3>專案</h3>
             <div style="display:flex;gap:6px;align-items:center;">
-              <button class="btn" onclick="document.getElementById('importProjectsFile').click()">匯入</button>
-              <button class="btn-primary" onclick="showProjectModal()">+ 新增</button>
-              <input type="file" id="importProjectsFile" accept=".json" style="display:none" onchange="importProjectsFromFile(this)">
+              <button class="btn" data-csp-onclick="document.getElementById('importProjectsFile').click()">匯入</button>
+              <button class="btn-primary" data-csp-onclick="showProjectModal()">+ 新增</button>
+              <input type="file" id="importProjectsFile" accept=".json" style="display:none" data-csp-onchange="importProjectsFromFile(this)">
             </div>
           </div>
           <div id="projectList"></div>
@@ -342,7 +343,7 @@
         <div id="versionSection" class="card" style="display:none">
           <div class="card-header">
             <h3>版本</h3>
-            <button class="btn-blue" onclick="showVersionModal()">+ 新增</button>
+            <button class="btn-blue" data-csp-onclick="showVersionModal()">+ 新增</button>
           </div>
           <div id="versionList"></div>
         </div>
@@ -350,13 +351,13 @@
         <div class="card">
           <h3>搜尋與篩選</h3>
           <div style="height:10px"></div>
-          <input type="text" class="search-input" id="searchInput" placeholder="搜尋標題、條件、問題、步驟、觀察、結論..." oninput="searchLogs()">
+          <input type="text" class="search-input" id="searchInput" placeholder="搜尋標題、條件、問題、步驟、觀察、結論..." data-csp-oninput="searchLogs()">
           <div style="margin-top:8px">
-            <label class="inline-check"><input type="checkbox" id="globalSearchToggle" onchange="searchLogs()"> 跨專案／版本搜尋</label>
+            <label class="inline-check"><input type="checkbox" id="globalSearchToggle" data-csp-onchange="searchLogs()"> 跨專案／版本搜尋</label>
           </div>
           <div class="form-group" style="margin-top:12px">
             <label>排序</label>
-            <select id="sortOrder" onchange="renderLogs()">
+            <select id="sortOrder" data-csp-onchange="renderLogs()">
               <option value="time_desc">時間：新到舊</option>
               <option value="time_asc">時間：舊到新</option>
               <option value="severity">嚴重度優先</option>
@@ -365,7 +366,7 @@
           </div>
           <div class="form-group">
             <label>狀態</label>
-            <select id="statusFilter" onchange="renderLogs()">
+            <select id="statusFilter" data-csp-onchange="renderLogs()">
               <option value="">全部狀態</option>
               <option>Open</option>
               <option>Investigating</option>
@@ -375,7 +376,7 @@
           </div>
           <div class="form-group">
             <label>嚴重度</label>
-            <select id="severityFilter" onchange="renderLogs()">
+            <select id="severityFilter" data-csp-onchange="renderLogs()">
               <option value="">全部嚴重度</option>
               <option>Critical</option>
               <option>High</option>
@@ -386,15 +387,15 @@
           <div class="form-group">
             <label>建立日期範圍</label>
             <div class="filter-row-2">
-              <input type="date" id="dateFromFilter" onchange="renderLogs()">
-              <input type="date" id="dateToFilter" onchange="renderLogs()">
+              <input type="date" id="dateFromFilter" data-csp-onchange="renderLogs()">
+              <input type="date" id="dateToFilter" data-csp-onchange="renderLogs()">
             </div>
           </div>
           <div class="form-group">
             <label class="inline-check" style="font-size:13px;color:var(--text)">
-              <input type="checkbox" id="overdueFilter" onchange="renderLogs()">
+              <input type="checkbox" id="overdueFilter" data-csp-onchange="renderLogs()">
               只顯示逾期未結案（超過
-              <input type="number" id="overdueDaysInput" value="7" min="1" style="width:48px;padding:2px 4px;display:inline-block" onchange="renderLogs()">
+              <input type="number" id="overdueDaysInput" value="7" min="1" style="width:48px;padding:2px 4px;display:inline-block" data-csp-onchange="renderLogs()">
               天）
             </label>
           </div>
@@ -402,11 +403,11 @@
           <div class="form-group" style="margin-top:12px">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <label style="margin:0">常用篩選</label>
-              <button class="btn" style="padding:4px 8px;font-size:12px" onclick="saveCurrentFilter()">+ 儲存目前條件</button>
+              <button class="btn" style="padding:4px 8px;font-size:12px" data-csp-onclick="saveCurrentFilter()">+ 儲存目前條件</button>
             </div>
             <div class="chip-row" id="savedFilterRow"></div>
           </div>
-          <button class="btn" style="width:100%;margin-top:8px" onclick="clearFilters()">清除全部篩選</button>
+          <button class="btn" style="width:100%;margin-top:8px" data-csp-onclick="clearFilters()">清除全部篩選</button>
         </div>
       </aside>
 
@@ -433,7 +434,7 @@
               <h2 id="currentVersionTitle"></h2>
               <p id="currentProjectSubtitle"></p>
             </div>
-            <button class="btn-primary" onclick="showLogModal()">+ 新增紀錄</button>
+            <button class="btn-primary" data-csp-onclick="showLogModal()">+ 新增紀錄</button>
           </div>
           <div id="statsGrid" class="stats-grid"></div>
           <div id="logTimeline" class="timeline"></div>
@@ -442,7 +443,7 @@
     </div>
   </div>
 
-  <div id="projectModal" class="modal-overlay" onclick="if(event.target===this)attemptCloseModal('projectModal')">
+  <div id="projectModal" class="modal-overlay" data-csp-onclick="if(event.target===this)attemptCloseModal('projectModal')">
     <div class="modal">
       <h3 id="projectModalTitle">新增專案</h3>
       <div class="form-group">
@@ -458,13 +459,13 @@
         <textarea id="projectDesc" rows="3"></textarea>
       </div>
       <div class="modal-actions">
-        <button class="btn" onclick="attemptCloseModal('projectModal')">取消</button>
-        <button class="btn-primary" onclick="saveProject()">儲存</button>
+        <button class="btn" data-csp-onclick="attemptCloseModal('projectModal')">取消</button>
+        <button class="btn-primary" data-csp-onclick="saveProject()">儲存</button>
       </div>
     </div>
   </div>
 
-  <div id="versionModal" class="modal-overlay" onclick="if(event.target===this)attemptCloseModal('versionModal')">
+  <div id="versionModal" class="modal-overlay" data-csp-onclick="if(event.target===this)attemptCloseModal('versionModal')">
     <div class="modal">
       <h3 id="versionModalTitle">新增版本</h3>
       <div class="form-group">
@@ -476,13 +477,13 @@
         <textarea id="versionDesc" rows="2"></textarea>
       </div>
       <div class="modal-actions">
-        <button class="btn" onclick="attemptCloseModal('versionModal')">取消</button>
-        <button class="btn-blue" onclick="saveVersion()">儲存</button>
+        <button class="btn" data-csp-onclick="attemptCloseModal('versionModal')">取消</button>
+        <button class="btn-blue" data-csp-onclick="saveVersion()">儲存</button>
       </div>
     </div>
   </div>
 
-  <div id="logModal" class="modal-overlay" onclick="if(event.target===this)attemptCloseModal('logModal')">
+  <div id="logModal" class="modal-overlay" data-csp-onclick="if(event.target===this)attemptCloseModal('logModal')">
     <div class="modal wide">
       <h3 id="logModalTitle">新增紀錄</h3>
       <div class="form-grid">
@@ -520,13 +521,13 @@
         <div class="form-group" style="grid-column: 1 / -1">
           <label>附件</label>
           <div id="attachmentDropzone" class="dropzone"
-               ondragover="event.preventDefault();this.classList.add('dragover')"
-               ondragleave="this.classList.remove('dragover')"
-               ondrop="handleAttachmentDrop(event)"
-               onclick="document.getElementById('logAttachments').click()">
+               data-csp-ondragover="event.preventDefault();this.classList.add('dragover')"
+               data-csp-ondragleave="this.classList.remove('dragover')"
+               data-csp-ondrop="handleAttachmentDrop(event)"
+               data-csp-onclick="document.getElementById('logAttachments').click()">
             拖放檔案到這裡，或點擊選擇檔案（示波器截圖、熱像圖、修改照片等，圖片會自動壓縮）
           </div>
-          <input type="file" id="logAttachments" multiple style="display:none" onchange="updateAttachmentSizeNote()">
+          <input type="file" id="logAttachments" multiple style="display:none" data-csp-onchange="updateAttachmentSizeNote()">
           <div id="attachmentSizeNote" class="attachment-size-note"></div>
           <div id="existingAttachments" class="existing-attachments"></div>
         </div>
@@ -561,7 +562,7 @@
       <div class="form-group">
         <label>結構化量測數值（選填）</label>
         <div id="measurementRows" class="tag-manage-list"></div>
-        <button class="btn" style="padding:6px 10px;font-size:12px" onclick="addMeasurementRow()">+ 新增數值</button>
+        <button class="btn" style="padding:6px 10px;font-size:12px" data-csp-onclick="addMeasurementRow()">+ 新增數值</button>
         <div class="helper">例如 Vout / 5.02 / V，會單獨顯示在紀錄卡片並可用於匯出。</div>
       </div>
       <div class="form-group">
@@ -569,80 +570,175 @@
         <textarea id="logConclusion" rows="2"></textarea>
       </div>
       <div class="modal-actions">
-        <button class="btn" onclick="attemptCloseModal('logModal')">取消</button>
-        <button class="btn-primary" onclick="saveLog()">儲存紀錄</button>
+        <button class="btn" data-csp-onclick="attemptCloseModal('logModal')">取消</button>
+        <button class="btn-primary" data-csp-onclick="saveLog()">儲存紀錄</button>
       </div>
     </div>
   </div>
 
-  <div id="tagManageModal" class="modal-overlay" onclick="if(event.target===this)closeModal('tagManageModal')">
+  <div id="tagManageModal" class="modal-overlay" data-csp-onclick="if(event.target===this)closeModal('tagManageModal')">
     <div class="modal">
       <h3>管理標籤</h3>
       <div id="tagManageList" class="tag-manage-list"></div>
       <div class="modal-actions" style="justify-content:flex-start;margin-top:0;margin-bottom:16px">
-        <button class="btn" onclick="addTagRow()">+ 新增標籤</button>
+        <button class="btn" data-csp-onclick="addTagRow()">+ 新增標籤</button>
       </div>
       <div class="helper">刪除標籤不會移除已套用在紀錄上的標籤文字，只會從篩選清單移除。</div>
       <div class="modal-actions">
-        <button class="btn" onclick="closeModal('tagManageModal')">取消</button>
-        <button class="btn-primary" onclick="saveTagManage()">儲存</button>
+        <button class="btn" data-csp-onclick="closeModal('tagManageModal')">取消</button>
+        <button class="btn-primary" data-csp-onclick="saveTagManage()">儲存</button>
       </div>
     </div>
   </div>
 
-  <div id="compareModal" class="modal-overlay" onclick="if(event.target===this)closeModal('compareModal')">
+  <div id="compareModal" class="modal-overlay" data-csp-onclick="if(event.target===this)closeModal('compareModal')">
     <div class="modal wide">
       <h3>比較版本</h3>
       <div class="form-grid">
         <div class="form-group">
           <label>版本 A</label>
-          <select id="compareVerA" onchange="renderCompare()"></select>
+          <select id="compareVerA" data-csp-onchange="renderCompare()"></select>
         </div>
         <div class="form-group">
           <label>版本 B</label>
-          <select id="compareVerB" onchange="renderCompare()"></select>
+          <select id="compareVerB" data-csp-onchange="renderCompare()"></select>
         </div>
       </div>
       <div id="compareResult"></div>
       <div class="modal-actions">
-        <button class="btn" onclick="closeModal('compareModal')">關閉</button>
+        <button class="btn" data-csp-onclick="closeModal('compareModal')">關閉</button>
       </div>
     </div>
   </div>
 
-  <div id="importProjectsModal" class="modal-overlay" onclick="if(event.target===this)closeImportProjectsModal()">
+  <div id="importProjectsModal" class="modal-overlay" data-csp-onclick="if(event.target===this)closeImportProjectsModal()">
     <div class="modal wide">
       <h3>選擇要匯入的專案</h3>
       <div id="importProjectsSummary" class="import-summary"></div>
       <div class="import-select-toolbar">
         <label class="inline-check" style="font-size:13px;color:var(--text)">
-          <input type="checkbox" id="importSelectAll" onchange="setAllImportProjects(this.checked)">
+          <input type="checkbox" id="importSelectAll" data-csp-onchange="setAllImportProjects(this.checked)">
           全部選取
         </label>
         <span id="importSelectedCount" class="helper" style="margin:0"></span>
       </div>
       <div id="importProjectList" class="import-project-list"></div>
       <div class="modal-actions">
-        <button class="btn" onclick="closeImportProjectsModal()">取消</button>
-        <button class="btn-blue" onclick="setAllImportProjects(true); confirmImportSelectedProjects(true)">全部匯入</button>
-        <button class="btn-primary" onclick="confirmImportSelectedProjects()">匯入勾選專案</button>
+        <button class="btn" data-csp-onclick="closeImportProjectsModal()">取消</button>
+        <button class="btn-blue" data-csp-onclick="setAllImportProjects(true); confirmImportSelectedProjects(true)">全部匯入</button>
+        <button class="btn-primary" data-csp-onclick="confirmImportSelectedProjects()">匯入勾選專案</button>
       </div>
     </div>
   </div>
 
   <div id="undoToast" class="undo-toast">
     <span id="undoToastText"></span>
-    <button class="btn-blue" style="padding:6px 10px" onclick="performUndo()">復原</button>
-    <button class="icon-btn" onclick="dismissUndoToast()" title="關閉">×</button>
+    <button class="btn-blue" style="padding:6px 10px" data-csp-onclick="performUndo()">復原</button>
+    <button class="icon-btn" data-csp-onclick="dismissUndoToast()" title="關閉">×</button>
   </div>
 
-  <div id="imageLightbox" class="image-lightbox" onclick="if(event.target===this)closeImagePreview()">
-    <button class="lightbox-close" onclick="closeImagePreview()" title="關閉">×</button>
+  <div id="imageLightbox" class="image-lightbox" data-csp-onclick="if(event.target===this)closeImagePreview()">
+    <button class="lightbox-close" data-csp-onclick="closeImagePreview()" title="關閉">×</button>
     <img id="imageLightboxImg" alt="">
     <div id="imageLightboxCaption" class="lightbox-caption"></div>
   </div>
 
-  <script>
+  <script nonce="VUaYmJgJj3n50tDKMFFA9Kg38-nFmM8L">
+    // ===== Trusted Types + Offline Sanitizer (single-file offline build) =====
+    // This build removes the CDN dependency. Dynamic HTML is parsed with DOMParser,
+    // dangerous elements/attributes/URLs are removed, then Trusted Types returns TrustedHTML.
+    (() => {
+      const fatal = (message) => {
+        document.documentElement.textContent = '';
+        const body = document.createElement('body');
+        body.style.cssText = 'font-family:system-ui;padding:32px';
+        const h = document.createElement('h1');
+        h.textContent = '安全模組載入失敗';
+        const p = document.createElement('p');
+        p.textContent = message;
+        body.append(h, p);
+        document.documentElement.appendChild(body);
+      };
+      if (!window.trustedTypes || typeof window.trustedTypes.createPolicy !== 'function') {
+        fatal('此瀏覽器不支援 Trusted Types。請使用最新版 Chrome / Edge。');
+        throw new Error('Trusted Types is required.');
+      }
+      const allowedTags = new Set([
+        'A','ABBR','ARTICLE','ASIDE','B','BDI','BDO','BLOCKQUOTE','BR','BUTTON','CAPTION','CODE','COLGROUP','DATA','DATALIST','DD','DEL','DETAILS','DIALOG','DIV','DL','DT','EM','FIELDSET','FIGCAPTION','FIGURE','FONT','FOOTER','H1','H2','H3','H4','H5','H6','HEADER','HR','I','IMG','INPUT','INS','KBD','LABEL','LEGEND','LI','MAIN','MARK','MENU','METER','NAV','OL','OPTGROUP','OPTION','OUTPUT','P','PICTURE','PRE','PROGRESS','Q','RP','RT','RUBY','S','SAMP','SECTION','SELECT','SMALL','SOURCE','SPAN','STRONG','SUB','SUMMARY','SUP','TABLE','TBODY','TD','TEXTAREA','TFOOT','TH','THEAD','TIME','TR','U','UL','VAR','VIDEO','WBR'
+      ]);
+      const blockedTags = new Set(['SCRIPT','IFRAME','OBJECT','EMBED','BASE','META','LINK','STYLE','SVG','MATH','FORM']);
+      const blockedAttrs = new Set(['srcdoc','formaction','action','xlink:href','integrity','nonce','http-equiv']);
+      const safeUrl = (value, isImage) => {
+        const s = String(value || '').trim();
+        if (!s) return true;
+        if (/^data:/i.test(s)) return !!isImage && /^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(s);
+        if (/^blob:/i.test(s)) return true;
+        if (/^(?:https?|mailto|tel):/i.test(s)) return true;
+        if (/^(?:javascript|vbscript):/i.test(s)) return false;
+        return /^[^a-z][^:]*$/i.test(s);
+      };
+      // Reentrancy guard: DOMParser.parseFromString is ITSELF a Trusted-Types-guarded
+      // sink. Since sanitizeHtml is registered as the 'default' policy below, calling
+      // parseFromString(str) with a plain string makes the browser call the default
+      // policy (i.e. sanitizeHtml) again on that same string to obtain a TrustedHTML,
+      // which without this guard would recurse forever (Maximum call stack size
+      // exceeded). When we detect we're already inside a sanitize pass, just hand the
+      // string straight back so parseFromString can proceed; the outer call still does
+      // the real sanitization on the resulting DOM tree afterwards.
+      let sanitizing = false;
+      const sanitizeHtml = (input) => {
+        const str = String(input ?? '');
+        if (sanitizing) return str;
+        sanitizing = true;
+        try {
+          const doc = new DOMParser().parseFromString(str, 'text/html');
+          const walk = (root) => {
+            for (const el of Array.from(root.children || [])) {
+              const tag = el.tagName.toUpperCase();
+              if (blockedTags.has(tag) || !allowedTags.has(tag)) {
+                el.remove();
+                continue;
+              }
+              for (const attr of Array.from(el.attributes)) {
+                const name = attr.name.toLowerCase();
+                const value = attr.value;
+                if (name.startsWith('on') || blockedAttrs.has(name)) {
+                  el.removeAttribute(attr.name);
+                  continue;
+                }
+                if (name === 'href' && !safeUrl(value, false)) {
+                  el.removeAttribute(attr.name);
+                  continue;
+                }
+                if ((name === 'src' || name === 'poster') && !safeUrl(value, tag === 'IMG' || tag === 'SOURCE')) {
+                  el.removeAttribute(attr.name);
+                  continue;
+                }
+                if (name === 'style') {
+                  const css = value.replace(/url\s*\([^)]*\)/gi, '').replace(/expression\s*\([^)]*\)/gi, '');
+                  el.setAttribute('style', css);
+                }
+              }
+              walk(el);
+            }
+          };
+          walk(doc.body);
+          return doc.body.innerHTML;
+        } finally {
+          sanitizing = false;
+        }
+      };
+      try {
+        window.trustedTypes.createPolicy('default', { createHTML: sanitizeHtml });
+      } catch (err) {
+        console.error('Trusted Types policy 建立失敗', err);
+        fatal('Trusted Types default policy 建立失敗，可能已有同名 policy。');
+        throw err;
+      }
+      window.__HWDEBUG_SANITIZER__ = 'native-domparser';
+      window.__HWDEBUG_TRUSTED_TYPES__ = true;
+    })();
+
     const DEFAULT_TAGS = [
       { name: 'Power', color: '#ffa657' },
       { name: 'Signal', color: '#79c0ff' },
@@ -662,6 +758,53 @@
     const THEME_KEY = 'hwdebug_theme';
     const SAVED_FILTERS_KEY = 'hwdebug_saved_filters_v1';
     const DEFAULT_ROOT_CAUSES = ['PCB Layout', '料件選用', '韌體邏輯', 'EMI / 雜訊', '熱設計', '機構公差', '測試方法', '電源設計'];
+
+    // ===== Security limits / validation =====
+    const SECURITY_LIMITS = {
+      maxJsonBytes: 12 * 1024 * 1024,
+      maxProjects: 500,
+      maxVersionsPerProject: 200,
+      maxLogsPerVersion: 10000,
+      maxAttachmentsPerLog: 20,
+      maxAttachmentBytes: 8 * 1024 * 1024,
+      maxStringLength: 100000,
+      maxTagLength: 80
+    };
+    const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,160}$/;
+    const SAFE_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
+    const SAFE_ATTACHMENT_RE = /^data:(image\/(?:png|jpeg|jpg|gif|webp|bmp)|application\/octet-stream|application\/pdf|text\/plain);base64,/i;
+
+    function safeString(value, max = SECURITY_LIMITS.maxStringLength) {
+      if (typeof value !== 'string') return '';
+      return value.length > max ? value.slice(0, max) : value;
+    }
+
+    function isSafeId(value) {
+      return typeof value === 'string' && SAFE_ID_RE.test(value);
+    }
+
+    function isSafeColor(value) {
+      return typeof value === 'string' && SAFE_COLOR_RE.test(value);
+    }
+
+    function isSafeAttachmentDataUrl(value) {
+      return typeof value === 'string' && SAFE_ATTACHMENT_RE.test(value);
+    }
+
+    function sanitizeAttachment(attachment) {
+      if (!attachment || typeof attachment !== 'object') return null;
+      const name = safeString(attachment.name, 255) || '附件';
+      const type = safeString(attachment.type, 100).toLowerCase();
+      const dataUrl = attachment.dataUrl;
+      if (!isSafeAttachmentDataUrl(dataUrl)) return null;
+      if (typeof dataUrl !== 'string' || dataUrl.length > SECURITY_LIMITS.maxAttachmentBytes * 2) return null;
+      return {
+        name: name.replace(/[\u0000-\u001f<>:"/\\|?*]/g, '_'),
+        type: type || 'application/octet-stream',
+        size: Number.isFinite(Number(attachment.size)) ? Math.max(0, Math.min(Number(attachment.size), SECURITY_LIMITS.maxAttachmentBytes)) : 0,
+        dataUrl
+      };
+    }
 
     let data = { projects: [], tags: JSON.parse(JSON.stringify(DEFAULT_TAGS)) };
     let currentProjectId = null;
@@ -764,36 +907,77 @@
 
     function validateData(imported) {
       const errors = [];
-      if (!imported || !Array.isArray(imported.projects)) errors.push('根節點需要 projects 陣列。');
-      (imported.projects || []).forEach((p, pi) => {
-        if (!p.id || !p.name) errors.push(`projects[${pi}] 缺少 id 或 name。`);
-        if (!Array.isArray(p.versions)) errors.push(`projects[${pi}].versions 需要是陣列。`);
-        (p.versions || []).forEach((v, vi) => {
-          if (!v.id || !v.name) errors.push(`projects[${pi}].versions[${vi}] 缺少 id 或 name。`);
-          if (!Array.isArray(v.logs)) errors.push(`projects[${pi}].versions[${vi}].logs 需要是陣列。`);
-          (v.logs || []).forEach((l, li) => {
-            if (!l.id || !l.title) errors.push(`log ${pi}/${vi}/${li} 缺少 id 或 title。`);
-            if (!Array.isArray(l.tags)) errors.push(`log ${pi}/${vi}/${li}.tags 需要是陣列。`);
+      if (!imported || typeof imported !== 'object' || !Array.isArray(imported.projects)) {
+        errors.push('根節點需要 projects 陣列。');
+        return errors;
+      }
+      if (imported.projects.length > SECURITY_LIMITS.maxProjects) errors.push(`專案數量不可超過 ${SECURITY_LIMITS.maxProjects}。`);
+      imported.projects.forEach((p, pi) => {
+        if (!isSafeId(p?.id) || !p?.name) errors.push(`projects[${pi}] 的 id / name 不合法。`);
+        if (!Array.isArray(p?.versions)) errors.push(`projects[${pi}].versions 需要是陣列。`);
+        if ((p?.name || '').length > SECURITY_LIMITS.maxStringLength || (p?.description || '').length > SECURITY_LIMITS.maxStringLength) errors.push(`projects[${pi}] 文字過長。`);
+        if (Array.isArray(p?.versions) && p.versions.length > SECURITY_LIMITS.maxVersionsPerProject) errors.push(`projects[${pi}] 版本數量過多。`);
+        (p?.versions || []).forEach((v, vi) => {
+          if (!isSafeId(v?.id) || !v?.name) errors.push(`projects[${pi}].versions[${vi}] 的 id / name 不合法。`);
+          if (!Array.isArray(v?.logs)) errors.push(`projects[${pi}].versions[${vi}].logs 需要是陣列。`);
+          if (Array.isArray(v?.logs) && v.logs.length > SECURITY_LIMITS.maxLogsPerVersion) errors.push(`projects[${pi}].versions[${vi}] 紀錄數量過多。`);
+          (v?.logs || []).forEach((l, li) => {
+            if (!isSafeId(l?.id) || !l?.title) errors.push(`log ${pi}/${vi}/${li} 的 id / title 不合法。`);
+            if (!Array.isArray(l?.tags)) errors.push(`log ${pi}/${vi}/${li}.tags 需要是陣列。`);
+            for (const key of ['title','conditions','problem','steps','observations','conclusion','firmwareVersion','rootCause']) {
+              if (typeof l?.[key] === 'string' && l[key].length > SECURITY_LIMITS.maxStringLength) errors.push(`log ${pi}/${vi}/${li} 的 ${key} 過長。`);
+            }
+            if (Array.isArray(l?.attachments)) {
+              if (l.attachments.length > SECURITY_LIMITS.maxAttachmentsPerLog) errors.push(`log ${pi}/${vi}/${li} 附件數量過多。`);
+              l.attachments.forEach((a, ai) => {
+                if (!sanitizeAttachment(a)) errors.push(`log ${pi}/${vi}/${li} 附件 ${ai} 的資料格式不安全。`);
+              });
+            }
           });
         });
       });
+      if (Array.isArray(imported.tags)) {
+        imported.tags.forEach((t, i) => {
+          if (!t || typeof t.name !== 'string' || t.name.length > SECURITY_LIMITS.maxTagLength || !isSafeColor(t.color || '')) {
+            errors.push(`tags[${i}] 格式不合法。`);
+          }
+        });
+      }
       return errors;
     }
+
     function normalizeData(imported) {
-      imported.tags = Array.isArray(imported.tags) && imported.tags.length ? imported.tags : JSON.parse(JSON.stringify(DEFAULT_TAGS));
+      imported.tags = Array.isArray(imported.tags) && imported.tags.length
+        ? imported.tags.map(t => ({ name: safeString(t?.name, SECURITY_LIMITS.maxTagLength), color: isSafeColor(t?.color) ? t.color : '#79c0ff' })).filter(t => t.name)
+        : JSON.parse(JSON.stringify(DEFAULT_TAGS));
+      imported.projects = imported.projects.slice(0, SECURITY_LIMITS.maxProjects);
       imported.projects.forEach(p => {
-        p.versions = p.versions || [];
+        p.name = safeString(p.name);
+        p.code = safeString(p.code, 255);
+        p.description = safeString(p.description);
+        p.versions = Array.isArray(p.versions) ? p.versions.slice(0, SECURITY_LIMITS.maxVersionsPerProject) : [];
         p.versions.forEach(v => {
-          v.logs = v.logs || [];
+          v.name = safeString(v.name);
+          v.description = safeString(v.description);
+          v.logs = Array.isArray(v.logs) ? v.logs.slice(0, SECURITY_LIMITS.maxLogsPerVersion) : [];
           v.logs.forEach(l => {
-            l.status = l.status || 'Open';
-            l.severity = l.severity || 'Medium';
-            l.attachments = l.attachments || [];
+            l.title = safeString(l.title);
+            l.status = ['Open','Investigating','Fixed','Verified'].includes(l.status) ? l.status : 'Open';
+            l.severity = ['Critical','High','Medium','Low'].includes(l.severity) ? l.severity : 'Medium';
+            l.tags = Array.isArray(l.tags) ? l.tags.map(x => safeString(x, SECURITY_LIMITS.maxTagLength)).filter(Boolean) : [];
+            l.conditions = safeString(l.conditions);
+            l.problem = safeString(l.problem);
+            l.steps = safeString(l.steps);
+            l.observations = safeString(l.observations);
+            l.conclusion = safeString(l.conclusion);
+            l.attachments = (Array.isArray(l.attachments) ? l.attachments : []).map(sanitizeAttachment).filter(Boolean).slice(0, SECURITY_LIMITS.maxAttachmentsPerLog);
             l.timestamp = l.timestamp || new Date().toISOString();
-            l.relatedLogId = l.relatedLogId || '';
-            l.firmwareVersion = l.firmwareVersion || '';
-            l.rootCause = l.rootCause || '';
-            l.measurements = Array.isArray(l.measurements) ? l.measurements : [];
+            l.relatedLogId = isSafeId(l.relatedLogId) ? l.relatedLogId : '';
+            l.firmwareVersion = safeString(l.firmwareVersion, 255);
+            l.rootCause = safeString(l.rootCause, 255);
+            l.measurements = Array.isArray(l.measurements) ? l.measurements.slice(0, 100).map(m => ({
+              label: safeString(m?.label, 255), value: safeString(m?.value, 255), unit: safeString(m?.unit, 64)
+            })) : [];
           });
         });
       });
@@ -807,6 +991,11 @@
     function openFromFile(input) {
       const file = input.files[0];
       if (!file) return;
+      if (file.size > SECURITY_LIMITS.maxJsonBytes) {
+        alert(`JSON 檔案過大，最多允許 ${Math.round(SECURITY_LIMITS.maxJsonBytes / 1024 / 1024)} MB。`);
+        input.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onload = e => {
         try {
@@ -833,6 +1022,11 @@
     function importProjectsFromFile(input) {
       const file = input.files[0];
       if (!file) return;
+      if (file.size > SECURITY_LIMITS.maxJsonBytes) {
+        alert(`JSON 檔案過大，最多允許 ${Math.round(SECURITY_LIMITS.maxJsonBytes / 1024 / 1024)} MB。`);
+        input.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onload = e => {
         try {
@@ -875,7 +1069,7 @@
         const isDuplicate = existingKeys.has(`${proj.name}::${proj.code || ''}`);
         return `
           <label class="import-project-row">
-            <input type="checkbox" class="import-project-check" value="${index}" checked onchange="updateImportSelectionState()">
+            <input type="checkbox" class="import-project-check" value="${index}" checked data-csp-onchange="updateImportSelectionState()">
             <span class="import-project-info">
               <span class="import-project-title">${escapeHtml(proj.name)}${proj.code ? ` (${escapeHtml(proj.code)})` : ''}</span>
               <span class="import-project-meta">${versionCount} 個版本，${logCount} 筆紀錄${proj.description ? ` · ${escapeHtml(proj.description)}` : ''}</span>
@@ -1028,10 +1222,10 @@
     function renderTagControls() {
       const list = tagList();
       const chips = list.map(t =>
-        `<span class="tag-filter ${activeTagFilters.has(t.name) ? 'active' : ''}" style="color:${t.color}" onclick="filterByTag('${t.name}')">${escapeHtml(t.name)}</span>`
+        `<span class="tag-filter ${activeTagFilters.has(t.name) ? 'active' : ''}" style="color:${t.color}" data-csp-onclick="filterByTag(${escapeHtml(JSON.stringify(t.name))})">${escapeHtml(t.name)}</span>`
       ).join('');
       const modeToggle = activeTagFilters.size > 1
-        ? `<span class="tag-filter" style="border-style:dashed" onclick="toggleTagFilterMode()" title="切換多標籤篩選邏輯">模式：${tagFilterMode}</span>`
+        ? `<span class="tag-filter" style="border-style:dashed" data-csp-onclick="toggleTagFilterMode()" title="切換多標籤篩選邏輯">模式：${tagFilterMode}</span>`
         : '';
       document.getElementById('tagFilters').innerHTML = chips + modeToggle;
       document.getElementById('logTagChecks').innerHTML = list.map(t =>
@@ -1059,9 +1253,9 @@
     function renderTagManageRows() {
       document.getElementById('tagManageList').innerHTML = pendingTagRows.map((t, i) => `
         <div class="tag-manage-row">
-          <input type="color" value="${t.color}" oninput="pendingTagRows[${i}].color=this.value">
-          <input type="text" value="${escapeHtml(t.name)}" oninput="pendingTagRows[${i}].name=this.value" placeholder="標籤名稱">
-          <button class="icon-btn danger" onclick="removeTagRow(${i})" title="刪除">×</button>
+          <input type="color" value="${t.color}" data-csp-oninput="pendingTagRows[${i}].color=this.value">
+          <input type="text" value="${escapeHtml(t.name)}" data-csp-oninput="pendingTagRows[${i}].name=this.value" placeholder="標籤名稱">
+          <button class="icon-btn danger" data-csp-onclick="removeTagRow(${i})" title="刪除">×</button>
         </div>`).join('') || '<div class="helper">尚未有任何標籤，點選下方新增。</div>';
     }
     function addTagRow() {
@@ -1088,13 +1282,13 @@
       const container = document.getElementById('projectList');
       container.innerHTML = data.projects.map(p => `
         <div class="list-item ${p.id === currentProjectId ? 'active-proj' : ''}">
-          <div class="list-item-info" onclick="selectProject('${p.id}')">
+          <div class="list-item-info" data-csp-onclick="selectProject('${p.id}')">
             <div class="list-item-title">${escapeHtml(p.name)}</div>
             <div class="list-item-sub">${escapeHtml(p.code || '無代碼')} · ${p.versions.length} 版本</div>
           </div>
           <div class="item-actions">
-            <button class="icon-btn" onclick="event.stopPropagation();showProjectModal('${p.id}')" title="編輯">✎</button>
-            <button class="icon-btn danger" onclick="event.stopPropagation();deleteProject('${p.id}')" title="刪除">×</button>
+            <button class="icon-btn" data-csp-onclick="event.stopPropagation();showProjectModal('${p.id}')" title="編輯">✎</button>
+            <button class="icon-btn danger" data-csp-onclick="event.stopPropagation();deleteProject('${p.id}')" title="刪除">×</button>
           </div>
         </div>`).join('');
     }
@@ -1109,13 +1303,13 @@
       }
       container.innerHTML = project.versions.map(v => `
         <div class="list-item ${v.id === currentVersionId ? 'active-ver' : ''}">
-          <div class="list-item-info" onclick="selectVersion('${v.id}')">
+          <div class="list-item-info" data-csp-onclick="selectVersion('${v.id}')">
             <div class="list-item-title">${escapeHtml(v.name)}</div>
             <div class="list-item-sub">${escapeHtml(v.description || '無描述')} · ${v.logs.length} 筆</div>
           </div>
           <div class="item-actions">
-            <button class="icon-btn" onclick="event.stopPropagation();showVersionModal('${v.id}')" title="編輯">✎</button>
-            <button class="icon-btn danger" onclick="event.stopPropagation();deleteVersion('${v.id}')" title="刪除">×</button>
+            <button class="icon-btn" data-csp-onclick="event.stopPropagation();showVersionModal('${v.id}')" title="編輯">✎</button>
+            <button class="icon-btn danger" data-csp-onclick="event.stopPropagation();deleteVersion('${v.id}')" title="刪除">×</button>
           </div>
         </div>`).join('');
     }
@@ -1139,7 +1333,7 @@
         return `
           <div class="timeline-item">
             <div class="timeline-dot"></div>
-            <div class="log-card ${isExpanded ? 'is-expanded' : 'is-collapsed'}" ondblclick="toggleLogExpanded('${log.id}')">
+            <div class="log-card ${isExpanded ? 'is-expanded' : 'is-collapsed'}" data-csp-ondblclick="toggleLogExpanded('${log.id}')">
               <div class="log-header">
                 <div>
                   <div class="log-title-row">
@@ -1150,9 +1344,9 @@
                   </div>
                   <div class="log-meta">${dateStr}${metaExtra ? ' · ' + escapeHtml(metaExtra) : ''}</div>
                 </div>
-                <div class="item-actions" ondblclick="event.stopPropagation()">
-                  <button class="icon-btn" onclick="event.stopPropagation();showLogModal('${log.id}')" title="編輯">✎</button>
-                  <button class="icon-btn danger" onclick="event.stopPropagation();deleteLog('${log.id}')" title="刪除">×</button>
+                <div class="item-actions" data-csp-ondblclick="event.stopPropagation()">
+                  <button class="icon-btn" data-csp-onclick="event.stopPropagation();showLogModal('${log.id}')" title="編輯">✎</button>
+                  <button class="icon-btn danger" data-csp-onclick="event.stopPropagation();deleteLog('${log.id}')" title="刪除">×</button>
                 </div>
               </div>
               ${sectionHtml('問題描述', log.problem, '#ff7b72')}
@@ -1175,7 +1369,7 @@
         for (const v of p.versions) {
           const target = v.logs.find(l => l.id === log.relatedLogId);
           if (target) {
-            return `<div class="log-section"><div class="log-section-label">關聯紀錄</div><span class="related-tag" onclick="event.stopPropagation();jumpToLog('${p.id}','${v.id}','${target.id}')">→ ${escapeHtml(p.name)} / ${escapeHtml(v.name)} / ${escapeHtml(target.title)}</span></div>`;
+            return `<div class="log-section"><div class="log-section-label">關聯紀錄</div><span class="related-tag" data-csp-onclick="event.stopPropagation();jumpToLog('${p.id}','${v.id}','${target.id}')">→ ${escapeHtml(p.name)} / ${escapeHtml(v.name)} / ${escapeHtml(target.title)}</span></div>`;
           }
         }
       }
@@ -1215,12 +1409,12 @@
     function renderAttachmentItem(attachment, index, editable = false) {
       const name = escapeHtml(attachment.name || `附件 ${index + 1}`);
       const deleteButton = editable
-        ? `<button class="attachment-delete" onclick="event.preventDefault();deleteAttachmentInModal(${index})" title="刪除附件">×</button>`
+        ? `<button class="attachment-delete" data-csp-onclick="event.preventDefault();deleteAttachmentInModal(${index})" title="刪除附件">×</button>`
         : '';
       if (isImageAttachment(attachment)) {
         return `
-          <div class="attachment-card" ondblclick="event.stopPropagation()">
-            <button style="display:block;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;" onclick="event.preventDefault();openImagePreview('${encodeURIComponent(attachment.dataUrl)}', '${encodeURIComponent(attachment.name || `附件 ${index + 1}`)}')" title="放大預覽">
+          <div class="attachment-card" data-csp-ondblclick="event.stopPropagation()">
+            <button style="display:block;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;" data-csp-onclick="event.preventDefault();openImagePreview('${encodeURIComponent(attachment.dataUrl)}', '${encodeURIComponent(attachment.name || `附件 ${index + 1}`)}')" title="放大預覽">
               <img src="${attachment.dataUrl}" alt="${name}">
             </button>
             <div class="attachment-card-footer">
@@ -1230,7 +1424,7 @@
           </div>`;
       }
       return `
-        <div class="attachment-card" ondblclick="event.stopPropagation()">
+        <div class="attachment-card" data-csp-ondblclick="event.stopPropagation()">
           <div style="height:96px;display:flex;align-items:center;justify-content:center;color:#8b949e;font-size:12px;">檔案</div>
           <div class="attachment-card-footer">
             <a class="attachment-name" href="${attachment.dataUrl}" download="${name}" title="${name}">${name}</a>
@@ -1401,10 +1595,10 @@
     function renderMeasurementRows() {
       document.getElementById('measurementRows').innerHTML = pendingMeasurementRows.map((m, i) => `
         <div class="tag-manage-row">
-          <input type="text" placeholder="項目（例如 Vout）" value="${escapeHtml(m.label)}" oninput="pendingMeasurementRows[${i}].label=this.value;modalDirty=true" style="flex:2">
-          <input type="text" placeholder="數值" value="${escapeHtml(m.value)}" oninput="pendingMeasurementRows[${i}].value=this.value;modalDirty=true" style="flex:1">
-          <input type="text" placeholder="單位" value="${escapeHtml(m.unit)}" oninput="pendingMeasurementRows[${i}].unit=this.value;modalDirty=true" style="flex:1">
-          <button class="icon-btn danger" onclick="removeMeasurementRow(${i})" title="刪除">×</button>
+          <input type="text" placeholder="項目（例如 Vout）" value="${escapeHtml(m.label)}" data-csp-oninput="pendingMeasurementRows[${i}].label=this.value;modalDirty=true" style="flex:2">
+          <input type="text" placeholder="數值" value="${escapeHtml(m.value)}" data-csp-oninput="pendingMeasurementRows[${i}].value=this.value;modalDirty=true" style="flex:1">
+          <input type="text" placeholder="單位" value="${escapeHtml(m.unit)}" data-csp-oninput="pendingMeasurementRows[${i}].unit=this.value;modalDirty=true" style="flex:1">
+          <button class="icon-btn danger" data-csp-onclick="removeMeasurementRow(${i})" title="刪除">×</button>
         </div>`).join('') || '<div class="helper">尚未加入任何量測數值。</div>';
     }
     function addMeasurementRow() {
@@ -1557,9 +1751,11 @@
         if ((file.type || '').startsWith('image/')) {
           return compressImageDataUrl(dataUrl).then(compressed => ({
             name: file.name, type: 'image/jpeg', size: Math.round(compressed.length * 0.75), dataUrl: compressed
-          })).catch(() => ({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, dataUrl }));
+          })).catch(() => ({ name: file.name, type: 'application/octet-stream', size: Math.min(file.size, SECURITY_LIMITS.maxAttachmentBytes), dataUrl }));
         }
-        return { name: file.name, type: file.type || 'application/octet-stream', size: file.size, dataUrl };
+        // Non-image attachments are stored as a generic download-only MIME type.
+        // This prevents imported JSON from introducing active-content schemes/types.
+        return { name: file.name, type: 'application/octet-stream', size: Math.min(file.size, SECURITY_LIMITS.maxAttachmentBytes), dataUrl };
       })));
     }
     function readFileAsDataUrl(file) {
@@ -1768,7 +1964,7 @@
         return `
           <div class="timeline-item">
             <div class="timeline-dot"></div>
-            <div class="log-card is-collapsed" style="cursor:pointer" onclick="jumpToLog('${project.id}','${version.id}','${log.id}')">
+            <div class="log-card is-collapsed" style="cursor:pointer" data-csp-onclick="jumpToLog('${project.id}','${version.id}','${log.id}')">
               <div class="log-header">
                 <div>
                   <div class="log-title-row">
@@ -1873,13 +2069,16 @@
       try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(savedFilters)); } catch (err) { /* ignore */ }
     }
     function loadSavedFilters() {
-      try { savedFilters = JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]'); } catch (err) { savedFilters = []; }
+      try {
+        const parsed = JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]');
+        savedFilters = Array.isArray(parsed) ? parsed.filter(f => isSafeId(f?.id) && typeof f?.name === 'string' && f.name.length <= 255) : [];
+      } catch (err) { savedFilters = []; }
     }
     function renderSavedFilters() {
       const el = document.getElementById('savedFilterRow');
       if (!el) return;
       el.innerHTML = savedFilters.length
-        ? savedFilters.map(f => `<span class="chip" onclick="applySavedFilter('${f.id}')">${escapeHtml(f.name)} <span onclick="deleteSavedFilter('${f.id}', event)" style="opacity:.65">×</span></span>`).join('')
+        ? savedFilters.map(f => `<span class="chip" data-csp-onclick="applySavedFilter('${f.id}')">${escapeHtml(f.name)} <span data-csp-onclick="deleteSavedFilter('${f.id}', event)" style="opacity:.65">×</span></span>`).join('')
         : '<span class="helper" style="margin:0">尚無已儲存的篩選</span>';
     }
     function highlightMatch(text) {
@@ -2085,9 +2284,6 @@
     ${pdfStat('高風險', version.logs.filter(l => ['Critical', 'High'].includes(l.severity)).length)}
   </div>
   ${logHtml}
-  <script>
-    window.addEventListener('load', () => setTimeout(() => window.print(), 250));
-  <\/script>
 </body>
 </html>`;
       const printWindow = window.open('', '_blank');
@@ -2098,6 +2294,7 @@
       printWindow.document.open();
       printWindow.document.write(reportHtml);
       printWindow.document.close();
+      printWindow.addEventListener('load', () => setTimeout(() => printWindow.print(), 250), { once: true });
     }
     function pdfSection(title, content) {
       if (!content) return '';
@@ -2107,7 +2304,9 @@
       return `<div class="stat"><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`;
     }
     function csvCell(value) {
-      return `"${String(value || '').replace(/"/g, '""')}"`;
+      let s = String(value ?? '');
+      if (/^[=+\-@]/.test(s)) s = "'" + s;
+      return `"${s.replace(/"/g, '""')}"`;
     }
 
     window.addEventListener('beforeunload', e => {
@@ -2144,6 +2343,113 @@
         performUndo();
       }
     });
+
+    // CSP-safe delegated event handling. The original inline handlers are stored
+    // as data-* attributes and dispatched only through an explicit whitelist.
+    const CSP_ALLOWED_ACTIONS = new Set([
+      'addMeasurementRow','addTagRow','applySavedFilter','attemptCloseModal','clearFilters',
+      'closeImagePreview','closeImportProjectsModal','closeModal','confirmImportSelectedProjects',
+      'deleteAttachmentInModal','deleteLog','deleteProject','deleteSavedFilter','deleteVersion',
+      'dismissAutosave','dismissUndoToast','exportCsv','exportMarkdown','exportPdf','filterByTag',
+      'handleAttachmentDrop','jumpToLog','loadDemoData','newProjectData','openFromFile','openImagePreview','performUndo',
+      'removeMeasurementRow','removeTagRow','renderCompare','renderLogs','restoreAutosave','saveCurrentFilter',
+      'saveLog','saveProject','saveTagManage','saveToFile','saveVersion','searchLogs','selectProject',
+      'selectVersion','setAllImportProjects','showCompareModal','showLogModal','showProjectModal',
+      'showTagManageModal','showVersionModal','toggleLogExpanded','toggleSidebar','toggleTagFilterMode',
+      'toggleTheme','updateAttachmentSizeNote','updateImportSelectionState','importProjectsFromFile',
+      'openFromFile'
+    ]);
+
+    function cspSplitArgs(text) {
+      // No characters between the parens at all -> zero arguments. Without this early
+      // return, the loop below never executes, cur stays '', and the old fallback
+      // condition (`|| text.trim()===''`) would push that '' as a fake argument, which
+      // cspDecodeLiteral can't classify as anything (not 'event'/'this'/number/quoted
+      // string) and returns undefined for -> cspRun then aborts the whole call because
+      // it sees an undefined arg. That silently broke every zero-argument invocation
+      // (toggleTheme(), saveToFile(), exportCsv(), showProjectModal(), etc).
+      if (text.trim() === '') return [];
+      const args=[]; let cur=''; let quote=null; let esc=false; let depth=0;
+      for (let i=0;i<text.length;i++) {
+        const ch=text[i];
+        if (esc) { cur += ch; esc=false; continue; }
+        if (quote && ch==='\\') { cur += ch; esc=true; continue; }
+        if (quote) { cur += ch; if (ch===quote) quote=null; continue; }
+        if (ch==='"' || ch==="'" || ch==='`') { cur += ch; quote=ch; continue; }
+        if (ch==='(' || ch==='[' || ch==='{') { depth++; cur+=ch; continue; }
+        if (ch===')' || ch===']' || ch==='}') { depth--; cur+=ch; continue; }
+        if (ch===',' && depth===0) { args.push(cur.trim()); cur=''; continue; }
+        cur+=ch;
+      }
+      args.push(cur.trim());
+      return args;
+    }
+    function cspDecodeLiteral(token, el, event) {
+      const t=token.trim();
+      if (t==='event') return event;
+      if (t==='this') return el;
+      if (t==='this.value') return el.value;
+      if (t==='this.checked') return el.checked;
+      if (t==='this.files') return el.files;
+      if (/^true$/.test(t)) return true;
+      if (/^false$/.test(t)) return false;
+      if (/^null$/.test(t)) return null;
+      if (/^[-+]?\d+(?:\.\d+)?$/.test(t)) return Number(t);
+      if ((t.startsWith("'")&&t.endsWith("'"))||(t.startsWith('"')&&t.endsWith('"'))||(t.startsWith('`')&&t.endsWith('`'))) {
+        const body=t.slice(1,-1);
+        return body.replace(/\\(['"`\\])/g,'$1');
+      }
+      return undefined;
+    }
+    function cspInvoke(name,args,el,event) {
+      if (!CSP_ALLOWED_ACTIONS.has(name) || typeof window[name] !== 'function') return;
+      window[name](...args);
+    }
+    function cspRun(source, el, event) {
+      let code=(source||'').trim();
+      if (!code) return;
+      if (/^if\(event\.target===this\)/.test(code)) {
+        if (event.target !== el) return;
+        code=code.replace(/^if\(event\.target===this\)/,'');
+      }
+      if (code.includes('event.preventDefault()')) event.preventDefault();
+      if (code.includes('event.stopPropagation()')) event.stopPropagation();
+      code=code.replace(/event\.preventDefault\(\);?/g,'').replace(/event\.stopPropagation\(\);?/g,'');
+      if (/^this\.classList\.add\('dragover'\)$/.test(code)) { el.classList.add('dragover'); return; }
+      if (/^this\.classList\.remove\('dragover'\)$/.test(code)) { el.classList.remove('dragover'); return; }
+      const assignment=code.match(/^pendingMeasurementRows\[(\d+)\]\.(label|value|unit)=this\.value;modalDirty=true$/);
+      if (assignment) {
+        const [,idx,field]=assignment; if (pendingMeasurementRows[Number(idx)]) pendingMeasurementRows[Number(idx)][field]=el.value; modalDirty=true; return;
+      }
+      const tagAssignment=code.match(/^pendingTagRows\[(\d+)\]\.(name|color)=this\.value$/);
+      if (tagAssignment) {
+        const [,idx,field]=tagAssignment; if (pendingTagRows[Number(idx)]) pendingTagRows[Number(idx)][field]=el.value; modalDirty=true; return;
+      }
+      const clickOpen=code.match(/^document\.getElementById\((['"])([^'"]+)\1\)\.click\(\)$/);
+      if (clickOpen) { document.getElementById(clickOpen[2])?.click(); return; }
+      if (/^setAllImportProjects\(true\);\s*confirmImportSelectedProjects\(true\)$/.test(code)) {
+        cspInvoke('setAllImportProjects',[true],el,event); cspInvoke('confirmImportSelectedProjects',[true],el,event); return;
+      }
+      const call=code.match(/^([A-Za-z_$][\w$]*)\((.*)\)$/s);
+      if (!call) return;
+      const name=call[1];
+      const rawArgs=cspSplitArgs(call[2]);
+      const args=rawArgs.map(x=>cspDecodeLiteral(x,el,event));
+      if (args.some(x=>x===undefined)) return;
+      cspInvoke(name,args,el,event);
+    }
+    function cspAttrHandler(event, attr) {
+      const el=event.target?.closest?.(`[data-csp-${attr}]`);
+      if (!el) return;
+      cspRun(el.getAttribute(`data-csp-${attr}`), el, event);
+    }
+    document.addEventListener('click', e=>cspAttrHandler(e,'onclick'), true);
+    document.addEventListener('dblclick', e=>cspAttrHandler(e,'ondblclick'), true);
+    document.addEventListener('change', e=>cspAttrHandler(e,'onchange'), true);
+    document.addEventListener('input', e=>cspAttrHandler(e,'oninput'), true);
+    document.addEventListener('dragover', e=>cspAttrHandler(e,'ondragover'), true);
+    document.addEventListener('dragleave', e=>cspAttrHandler(e,'ondragleave'), true);
+    document.addEventListener('drop', e=>cspAttrHandler(e,'ondrop'), true);
 
     initTheme();
     loadSavedFilters();
