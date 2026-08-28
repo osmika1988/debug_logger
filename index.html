@@ -1346,6 +1346,7 @@
                 </div>
                 <div class="item-actions" data-csp-ondblclick="event.stopPropagation()">
                   <button class="icon-btn" data-csp-onclick="event.stopPropagation();showLogModal('${log.id}')" title="編輯">✎</button>
+                  <button class="icon-btn" data-csp-onclick="event.stopPropagation();duplicateLog('${log.id}')" title="複製">⧉</button>
                   <button class="icon-btn danger" data-csp-onclick="event.stopPropagation();deleteLog('${log.id}')" title="刪除">×</button>
                 </div>
               </div>
@@ -2350,7 +2351,7 @@
       'addMeasurementRow','addTagRow','applySavedFilter','attemptCloseModal','clearFilters',
       'closeImagePreview','closeImportProjectsModal','closeModal','confirmImportSelectedProjects',
       'deleteAttachmentInModal','deleteLog','deleteProject','deleteSavedFilter','deleteVersion',
-      'dismissAutosave','dismissUndoToast','exportCsv','exportMarkdown','exportPdf','filterByTag',
+      'dismissAutosave','dismissUndoToast','duplicateLog','exportCsv','exportMarkdown','exportPdf','filterByTag',
       'handleAttachmentDrop','jumpToLog','loadDemoData','newProjectData','openFromFile','openImagePreview','performUndo',
       'removeMeasurementRow','removeTagRow','renderCompare','renderLogs','restoreAutosave','saveCurrentFilter',
       'saveLog','saveProject','saveTagManage','saveToFile','saveVersion','searchLogs','selectProject',
