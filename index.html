@@ -305,6 +305,8 @@
     .import-project-title { color: var(--strong); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
     .import-project-meta { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.5; }
     .import-duplicate { color: var(--orange); font-size: 12px; margin-top: 4px; }
+    .import-project-name-input { font-size: 13px; padding: 5px 7px; margin-bottom: 2px; }
+    .import-project-row.has-conflict .import-project-name-input { border-color: var(--orange); }
     @media (max-width: 860px) {
       .compare-grid { grid-template-columns: 1fr; }
     }
@@ -1120,22 +1122,65 @@
       const projects = pendingProjectImport?.projects || [];
       const existingKeys = new Set(data.projects.map(p => `${p.name}::${p.code || ''}`));
       document.getElementById('importProjectsSummary').textContent =
-        `來源檔案：${pendingProjectImport.fileName}，共找到 ${projects.length} 個專案。`;
+        `來源檔案：${pendingProjectImport.fileName}，共找到 ${projects.length} 個專案。重複的專案名稱可直接在下方修改後再匯入。`;
       document.getElementById('importProjectList').innerHTML = projects.map((proj, index) => {
         const versionCount = (proj.versions || []).length;
         const logCount = (proj.versions || []).reduce((sum, version) => sum + (version.logs || []).length, 0);
         const isDuplicate = existingKeys.has(`${proj.name}::${proj.code || ''}`);
+        if (proj._originalDuplicate === undefined) proj._originalDuplicate = isDuplicate;
+        if (isDuplicate && !proj._renamed) proj.name = `${proj.name} [匯入]`;
         return `
-          <label class="import-project-row">
+          <div class="import-project-row">
             <input type="checkbox" class="import-project-check" value="${index}" checked data-csp-onchange="updateImportSelectionState()">
-            <span class="import-project-info">
-              <span class="import-project-title">${escapeHtml(proj.name)}${proj.code ? ` (${escapeHtml(proj.code)})` : ''}</span>
-              <span class="import-project-meta">${versionCount} 個版本，${logCount} 筆紀錄${proj.description ? ` · ${escapeHtml(proj.description)}` : ''}</span>
-              ${isDuplicate ? '<span class="import-duplicate">此專案名稱與代碼似乎已存在，匯入時會再詢問是否改名加入。</span>' : ''}
-            </span>
-          </label>`;
+            <div class="import-project-info">
+              <input type="text" class="import-project-name-input" data-index="${index}" value="${escapeHtml(proj.name)}" data-csp-oninput="updateImportProjectName(${index}, this.value)">
+              <span class="import-project-meta">${proj.code ? `代碼：${escapeHtml(proj.code)} · ` : ''}${versionCount} 個版本，${logCount} 筆紀錄${proj.description ? ` · ${escapeHtml(proj.description)}` : ''}</span>
+              <span class="import-duplicate" data-conflict-msg="${index}" style="display:none"></span>
+            </div>
+          </div>`;
       }).join('');
       setAllImportProjects(true);
+      updateImportConflictWarnings();
+    }
+    function updateImportProjectName(index, value) {
+      const proj = pendingProjectImport?.projects?.[index];
+      if (!proj) return;
+      proj.name = value;
+      proj._renamed = true;
+      updateImportConflictWarnings();
+    }
+    function updateImportConflictWarnings() {
+      const projects = pendingProjectImport?.projects || [];
+      const existingKeys = new Set(data.projects.map(p => `${p.name}::${p.code || ''}`));
+      const seenInBatch = new Map();
+      projects.forEach((proj, index) => {
+        const key = `${(proj.name || '').trim()}::${proj.code || ''}`;
+        seenInBatch.set(key, (seenInBatch.get(key) || 0) + 1);
+      });
+      projects.forEach((proj, index) => {
+        const trimmedName = (proj.name || '').trim();
+        const key = `${trimmedName}::${proj.code || ''}`;
+        const row = document.querySelector(`.import-project-name-input[data-index="${index}"]`)?.closest('.import-project-row');
+        const msgEl = document.querySelector(`[data-conflict-msg="${index}"]`);
+        if (!row || !msgEl) return;
+        let message = '';
+        let stillConflicting = false;
+        if (!trimmedName) {
+          message = '專案名稱不可為空白。';
+          stillConflicting = true;
+        } else if (existingKeys.has(key)) {
+          message = '此專案名稱與代碼已存在，請修改名稱後再匯入。';
+          stillConflicting = true;
+        } else if ((seenInBatch.get(key) || 0) > 1) {
+          message = '與同批匯入的其他專案名稱重複，請修改後再匯入。';
+          stillConflicting = true;
+        } else if (proj._originalDuplicate) {
+          message = '此專案名稱與代碼似乎已存在，已自動改名，如需要可再自行修改。';
+        }
+        row.classList.toggle('has-conflict', stillConflicting);
+        msgEl.textContent = message;
+        msgEl.style.display = message ? 'block' : 'none';
+      });
     }
     function updateImportSelectionState() {
       const checks = Array.from(document.querySelectorAll('.import-project-check'));
@@ -1165,32 +1210,37 @@
         alert('請至少勾選一個要匯入的專案。');
         return;
       }
+      updateImportConflictWarnings();
       const existingKeys = new Set(data.projects.map(p => `${p.name}::${p.code || ''}`));
-      const toImport = [];
-      let skipped = 0;
+      const seenInBatch = new Map();
+      selectedIndexes.forEach(index => {
+        const proj = pendingProjectImport.projects[index];
+        if (!proj) return;
+        const key = `${(proj.name || '').trim()}::${proj.code || ''}`;
+        seenInBatch.set(key, (seenInBatch.get(key) || 0) + 1);
+      });
+      const conflictNames = [];
       for (const index of selectedIndexes) {
-        const sourceProject = pendingProjectImport.projects[index];
-        if (!sourceProject) continue;
-        const proj = JSON.parse(JSON.stringify(sourceProject));
-        const key = `${proj.name}::${proj.code || ''}`;
-        if (existingKeys.has(key)) {
-          const choice = confirm(`專案「${proj.name}」${proj.code ? `（${proj.code}）` : ''}似乎已存在，按「確定」仍要匯入為新專案（會標註 [匯入]），按「取消」則略過此專案。`);
-          if (!choice) { skipped++; continue; }
-          proj.name = `${proj.name} [匯入]`;
+        const proj = pendingProjectImport.projects[index];
+        if (!proj) continue;
+        const trimmedName = (proj.name || '').trim();
+        const key = `${trimmedName}::${proj.code || ''}`;
+        if (!trimmedName || existingKeys.has(key) || (seenInBatch.get(key) || 0) > 1) {
+          conflictNames.push(trimmedName || `（第 ${index + 1} 筆，名稱空白）`);
         }
-        toImport.push(proj);
       }
-      const projectsToAdd = toImport.map(cloneImportedProject);
-      if (!projectsToAdd.length) {
-        alert(skipped ? `已略過 ${skipped} 個重複專案，沒有新增任何專案。` : '沒有新增任何專案。');
+      if (conflictNames.length) {
+        alert(`以下專案名稱仍有衝突，請先在清單中修改名稱後再匯入：\n\n${conflictNames.join('\n')}`);
         return;
       }
+      const toImport = selectedIndexes.map(index => JSON.parse(JSON.stringify(pendingProjectImport.projects[index])));
+      const projectsToAdd = toImport.map(cloneImportedProject);
       data.projects.push(...projectsToAdd);
       const fileName = pendingProjectImport.fileName;
       closeImportProjectsModal();
       markUnsaved();
       renderAll();
-      alert(`已從 ${fileName} 匯入 ${projectsToAdd.length} 個專案。${skipped ? `（略過 ${skipped} 個重複）` : ''}`);
+      alert(`已從 ${fileName} 匯入 ${projectsToAdd.length} 個專案。`);
     }
     function closeImportProjectsModal() {
       closeModal('importProjectsModal');
@@ -2568,7 +2618,7 @@
       'saveLog','saveProject','saveTagManage','saveToFile','saveVersion','searchLogs','selectProject',
       'selectVersion','setAllExportSelection','setAllImportProjects','setStatFilter','showCompareModal','showLogModal','showProjectModal',
       'showTagManageModal','showTrendChart','showVersionModal','toggleLogExpanded','toggleSidebar','toggleTagFilterMode',
-      'toggleTheme','updateAttachmentSizeNote','updateExportSelectionState','updateImportSelectionState','importProjectsFromFile',
+      'toggleTheme','updateAttachmentSizeNote','updateExportSelectionState','updateImportSelectionState','updateImportProjectName','importProjectsFromFile',
       'openFromFile'
     ]);
 
