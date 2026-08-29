@@ -900,6 +900,10 @@
       div.textContent = text || '';
       return div.innerHTML;
     }
+    function jsStringLiteral(text) {
+      const escaped = String(text ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      return escapeHtml(`'${escaped}'`);
+    }
     function downloadFile(filename, content, type) {
       const blob = new Blob([content], { type });
       const url = URL.createObjectURL(blob);
@@ -1227,7 +1231,7 @@
     function renderTagControls() {
       const list = tagList();
       const chips = list.map(t =>
-        `<span class="tag-filter ${activeTagFilters.has(t.name) ? 'active' : ''}" style="color:${t.color}" data-csp-onclick="filterByTag(${escapeHtml(JSON.stringify(t.name))})">${escapeHtml(t.name)}</span>`
+        `<span class="tag-filter ${activeTagFilters.has(t.name) ? 'active' : ''}" style="color:${t.color}" data-csp-onclick="filterByTag(${jsStringLiteral(t.name)})">${escapeHtml(t.name)}</span>`
       ).join('');
       const modeToggle = activeTagFilters.size > 1
         ? `<span class="tag-filter" style="border-style:dashed" data-csp-onclick="toggleTagFilterMode()" title="切換多標籤篩選邏輯">模式：${tagFilterMode}</span>`
