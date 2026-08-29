@@ -138,6 +138,10 @@
     .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
     .stat-value { color: var(--strong); font-size: 22px; font-weight: 700; }
     .stat-label { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .stat-clickable { cursor: pointer; user-select: none; transition: 0.15s; }
+    .stat-clickable:hover { border-color: #58a6ff; background: #1f6feb11; }
+    .stat-clickable.active { border-color: var(--blue); background: #1f6feb1a; box-shadow: inset 0 0 0 1px var(--blue); }
+    .stat-clickable.active .stat-value { color: #58a6ff; }
     .timeline { position: relative; padding-left: 28px; }
     .timeline::before { content: ""; position: absolute; left: 9px; top: 0; bottom: 0; width: 2px; background: var(--line); }
     .timeline-item { position: relative; margin-bottom: 18px; }
@@ -814,6 +818,7 @@
     let editingLogId = null;
     let removedAttachmentIndexes = new Set();
     let expandedLogIds = new Set();
+    let statFilter = new Set();
     let searchFilter = '';
     let activeTagFilters = new Set();
     let tagFilterMode = 'OR';
@@ -1475,14 +1480,27 @@
       const critical = allLogs.filter(l => ['Critical', 'High'].includes(l.severity)).length;
       const verified = allLogs.filter(l => l.status === 'Verified').length;
       const statsDefs = [
-        ['總紀錄', allLogs.length, ''],
-        ['未結案', open, ''],
-        ['高風險', critical, ''],
-        ['已驗證', verified || fixed, '']
+        ['total', '總紀錄', allLogs.length, ''],
+        ['open', '未結案', open, ''],
+        ['critical', '高風險', critical, ''],
+        ['verified', '已驗證', verified || fixed, '']
       ];
-      document.getElementById('statsGrid').innerHTML = statsDefs.map(([label, value, tip]) =>
-        `<div class="stat"${tip ? ` title="${escapeHtml(tip)}"` : ''}><div class="stat-value" style="${String(value).length > 8 ? 'font-size:15px' : ''}">${escapeHtml(String(value))}</div><div class="stat-label">${label}</div></div>`
-      ).join('');
+      document.getElementById('statsGrid').innerHTML = statsDefs.map(([key, label, value, tip]) => {
+        const isActive = key === 'total' ? statFilter.size === 0 : statFilter.has(key);
+        return `<div class="stat stat-clickable${isActive ? ' active' : ''}"${tip ? ` title="${escapeHtml(tip)}"` : ''} data-csp-onclick="setStatFilter('${key}')"><div class="stat-value" style="${String(value).length > 8 ? 'font-size:15px' : ''}">${escapeHtml(String(value))}</div><div class="stat-label">${label}</div></div>`;
+      }).join('');
+    }
+    function setStatFilter(key) {
+      if (key === 'total') {
+        statFilter.clear();
+      } else if (statFilter.has(key)) {
+        statFilter.delete(key);
+      } else {
+        if (key === 'open') statFilter.delete('verified');
+        if (key === 'verified') statFilter.delete('open');
+        statFilter.add(key);
+      }
+      renderLogs();
     }
     function sortLogs(logs) {
       const order = document.getElementById('sortOrder')?.value || 'time_desc';
@@ -1501,9 +1519,13 @@
       const dateTo = document.getElementById('dateToFilter')?.value;
       const overdue = document.getElementById('overdueFilter')?.checked;
       const overdueDays = parseInt(document.getElementById('overdueDaysInput')?.value, 10) || 7;
+      const hasVerified = logs.some(l => l.status === 'Verified');
       return sortLogs(logs)
         .filter(l => !status || l.status === status)
         .filter(l => !severity || l.severity === severity)
+        .filter(l => !statFilter.has('open') || ['Open', 'Investigating'].includes(l.status))
+        .filter(l => !statFilter.has('critical') || ['Critical', 'High'].includes(l.severity))
+        .filter(l => !statFilter.has('verified') || (hasVerified ? l.status === 'Verified' : ['Fixed', 'Verified'].includes(l.status)))
         .filter(l => tagMatches(l.tags))
         .filter(l => !dateFrom || new Date(l.timestamp) >= new Date(dateFrom))
         .filter(l => !dateTo || new Date(l.timestamp) <= new Date(dateTo + 'T23:59:59'))
@@ -2020,6 +2042,7 @@
       searchFilter = '';
       activeTagFilters = new Set();
       tagFilterMode = 'OR';
+      statFilter = new Set();
       renderTagControls();
       searchLogs();
     }
@@ -2355,7 +2378,7 @@
       'handleAttachmentDrop','jumpToLog','loadDemoData','newProjectData','openFromFile','openImagePreview','performUndo',
       'removeMeasurementRow','removeTagRow','renderCompare','renderLogs','restoreAutosave','saveCurrentFilter',
       'saveLog','saveProject','saveTagManage','saveToFile','saveVersion','searchLogs','selectProject',
-      'selectVersion','setAllImportProjects','showCompareModal','showLogModal','showProjectModal',
+      'selectVersion','setAllImportProjects','setStatFilter','showCompareModal','showLogModal','showProjectModal',
       'showTagManageModal','showVersionModal','toggleLogExpanded','toggleSidebar','toggleTagFilterMode',
       'toggleTheme','updateAttachmentSizeNote','updateImportSelectionState','importProjectsFromFile',
       'openFromFile'
