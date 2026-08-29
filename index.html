@@ -216,6 +216,22 @@
       color: var(--text); text-align: center; font-size: 13px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    .chart-lightbox-box {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+      padding: 20px 24px; max-width: 900px; width: 92vw; max-height: 86vh; overflow: auto;
+    }
+    .chart-lightbox-title { color: var(--strong); font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+    .trend-chart-btn {
+      margin-top: 6px; padding: 4px 10px; font-size: 12px; border: 1px solid var(--line);
+      border-radius: 6px; background: var(--panel-2, transparent); color: var(--orange);
+      cursor: pointer;
+    }
+    .trend-chart-btn:hover { border-color: var(--orange); }
+    .trend-chart-svg text { fill: var(--text); font-size: 11px; font-family: inherit; }
+    .trend-chart-svg .axis-line { stroke: var(--line); stroke-width: 1; }
+    .trend-chart-svg .grid-line { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; }
+    .trend-chart-svg .trend-line { fill: none; stroke: var(--orange); stroke-width: 2; }
+    .trend-chart-svg .trend-point { fill: var(--orange); stroke: var(--panel); stroke-width: 1.5; }
     .modal-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72);
       z-index: 1000; align-items: center; justify-content: center; padding: 18px;
@@ -647,6 +663,14 @@
     <div id="imageLightboxCaption" class="lightbox-caption"></div>
   </div>
 
+  <div id="chartLightbox" class="image-lightbox" data-csp-onclick="if(event.target===this)closeChartPreview()">
+    <button class="lightbox-close" data-csp-onclick="closeChartPreview()" title="關閉">×</button>
+    <div class="chart-lightbox-box">
+      <div id="chartLightboxTitle" class="chart-lightbox-title"></div>
+      <div id="chartLightboxBody"></div>
+    </div>
+  </div>
+
   <script nonce="VUaYmJgJj3n50tDKMFFA9Kg38-nFmM8L">
     // ===== Trusted Types + Offline Sanitizer (single-file offline build) =====
     // This build removes the CDN dependency. Dynamic HTML is parsed with DOMParser,
@@ -776,7 +800,7 @@
     };
     const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,160}$/;
     const SAFE_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
-    const SAFE_ATTACHMENT_RE = /^data:(image\/(?:png|jpeg|jpg|gif|webp|bmp)|application\/octet-stream|application\/pdf|text\/plain);base64,/i;
+    const SAFE_ATTACHMENT_RE = /^data:(image\/(?:png|jpeg|jpg|gif|webp|bmp)|application\/octet-stream|application\/pdf|text\/plain);base64,[A-Za-z0-9+/]*={0,2}$/i;
 
     function safeString(value, max = SECURITY_LIMITS.maxStringLength) {
       if (typeof value !== 'string') return '';
@@ -877,6 +901,13 @@
       if (!raw) return;
       try {
         const parsed = JSON.parse(raw);
+        const errors = validateData(parsed?.data);
+        if (errors.length) {
+          alert(`自動備份格式驗證失敗，為安全起見已略過還原：\n\n${errors.slice(0, 8).join('\n')}${errors.length > 8 ? '\n...' : ''}`);
+          clearAutosave();
+          document.getElementById('draftBanner').classList.remove('show');
+          return;
+        }
         data = normalizeData(parsed.data);
         currentProjectId = null;
         currentVersionId = null;
@@ -1364,7 +1395,7 @@
                 ${sectionHtml('測試條件', log.conditions, '#58a6ff', true)}
                 ${sectionHtml('重現 / 測試步驟', log.steps, '#ffa657')}
                 ${sectionHtml('觀察 / 量測結果', log.observations, '#79c0ff')}
-                ${measurementsHtml(log.measurements)}
+                ${measurementsHtml(log.measurements, log.id)}
                 ${log.conclusion ? `<div class="log-section"><div class="log-box-green"><div class="log-section-label" style="color:#3fb950">結論 / 對策</div><div class="log-section-content">${highlightMatch(log.conclusion)}</div></div></div>` : ''}
                 ${attachmentsHtml ? `<div class="log-section"><div class="log-section-label">附件</div>${attachmentsHtml}</div>` : ''}
                 ${relatedLogHtml(log)}
@@ -1390,10 +1421,14 @@
       const inner = `<div class="log-section-label" style="color:${color}">${label}</div><div class="log-section-content">${highlightMatch(content)}</div>`;
       return boxed ? `<div class="log-section"><div class="log-box">${inner}</div></div>` : `<div class="log-section">${inner}</div>`;
     }
-    function measurementsHtml(measurements) {
+    function measurementsHtml(measurements, logId) {
       if (!measurements || !measurements.length) return '';
       const rows = measurements.map(m => `<tr><td>${escapeHtml(m.label)}</td><td>${escapeHtml(m.value)}${m.unit ? ' ' + escapeHtml(m.unit) : ''}</td></tr>`).join('');
-      return `<div class="log-section"><div class="log-section-label">結構化量測數值</div><table class="measure-table">${rows}</table></div>`;
+      const numericCount = measurements.filter(m => m.value !== '' && m.value !== null && m.value !== undefined && isFinite(parseFloat(m.value))).length;
+      const chartBtn = numericCount >= 2
+        ? `<button type="button" class="trend-chart-btn" data-csp-onclick="event.stopPropagation();showTrendChart('${logId}')">📈 產生走勢圖</button>`
+        : '';
+      return `<div class="log-section"><div class="log-section-label">結構化量測數值</div><table class="measure-table">${rows}</table>${chartBtn}</div>`;
     }
     function logMetaExtra(log) {
       const parts = [];
@@ -1477,6 +1512,76 @@
       document.getElementById('imageLightbox').classList.remove('active');
       document.getElementById('imageLightboxImg').src = '';
       document.getElementById('imageLightboxCaption').textContent = '';
+    }
+    function buildTrendChartSVG(points) {
+      const NS = 'http://www.w3.org/2000/svg';
+      const w = 760, h = 380;
+      const margin = { top: 20, right: 30, bottom: 60, left: 60 };
+      const innerW = w - margin.left - margin.right;
+      const innerH = h - margin.top - margin.bottom;
+      const values = points.map(p => p.y);
+      let yMin = Math.min(...values);
+      let yMax = Math.max(...values);
+      if (yMin === yMax) { yMin -= 1; yMax += 1; }
+      const pad = (yMax - yMin) * 0.1;
+      yMin -= pad; yMax += pad;
+      const xStep = points.length > 1 ? innerW / (points.length - 1) : 0;
+      const xAt = i => margin.left + (points.length > 1 ? i * xStep : innerW / 2);
+      const yAt = v => margin.top + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('class', 'trend-chart-svg');
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.setAttribute('width', '100%');
+      const el = (tag, attrs, text) => {
+        const node = document.createElementNS(NS, tag);
+        for (const k in attrs) node.setAttribute(k, attrs[k]);
+        if (text !== undefined) node.textContent = text;
+        return node;
+      };
+      const gridCount = 4;
+      for (let i = 0; i <= gridCount; i++) {
+        const v = yMin + (yMax - yMin) * (i / gridCount);
+        const y = yAt(v);
+        svg.appendChild(el('line', { class: 'grid-line', x1: margin.left, y1: y, x2: margin.left + innerW, y2: y }));
+        svg.appendChild(el('text', { x: margin.left - 8, y: y + 4, 'text-anchor': 'end' }, v.toFixed(2)));
+      }
+      svg.appendChild(el('line', { class: 'axis-line', x1: margin.left, y1: margin.top, x2: margin.left, y2: margin.top + innerH }));
+      svg.appendChild(el('line', { class: 'axis-line', x1: margin.left, y1: margin.top + innerH, x2: margin.left + innerW, y2: margin.top + innerH }));
+      points.forEach((p, i) => {
+        const x = xAt(i);
+        const y = margin.top + innerH + 18;
+        const label = p.x.length > 10 ? p.x.slice(0, 9) + '…' : p.x;
+        const t = el('text', { x, y, 'text-anchor': 'end', transform: `rotate(-35 ${x} ${y})` }, label);
+        const title = el('title', {}, p.x);
+        t.appendChild(title);
+        svg.appendChild(t);
+      });
+      const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${xAt(i)},${yAt(p.y)}`).join(' ');
+      svg.appendChild(el('path', { class: 'trend-line', d: linePath }));
+      points.forEach((p, i) => {
+        const dot = el('circle', { class: 'trend-point', cx: xAt(i), cy: yAt(p.y), r: 3.5 });
+        dot.appendChild(el('title', {}, `${p.x}: ${p.y}${p.unit ? ' ' + p.unit : ''}`));
+        svg.appendChild(dot);
+        svg.appendChild(el('text', { x: xAt(i), y: yAt(p.y) - 10, 'text-anchor': 'middle' }, String(p.y)));
+      });
+      return svg;
+    }
+    function showTrendChart(logId) {
+      const log = getVersion()?.logs.find(x => x.id === logId);
+      if (!log) return;
+      const points = (log.measurements || [])
+        .filter(m => m.value !== '' && m.value !== null && m.value !== undefined && isFinite(parseFloat(m.value)))
+        .map(m => ({ x: m.label || '', y: parseFloat(m.value), unit: m.unit || '' }));
+      if (points.length < 2) return;
+      document.getElementById('chartLightboxTitle').textContent = `${log.title || '走勢圖'}　結構化量測數值走勢圖`;
+      const body = document.getElementById('chartLightboxBody');
+      body.replaceChildren(buildTrendChartSVG(points));
+      document.getElementById('chartLightbox').classList.add('active');
+    }
+    function closeChartPreview() {
+      document.getElementById('chartLightbox').classList.remove('active');
+      document.getElementById('chartLightboxBody').replaceChildren();
+      document.getElementById('chartLightboxTitle').textContent = '';
     }
     function renderStats(allLogs) {
       const fixed = allLogs.filter(l => ['Fixed', 'Verified'].includes(l.status)).length;
@@ -2376,14 +2481,14 @@
     // as data-* attributes and dispatched only through an explicit whitelist.
     const CSP_ALLOWED_ACTIONS = new Set([
       'addMeasurementRow','addTagRow','applySavedFilter','attemptCloseModal','clearFilters',
-      'closeImagePreview','closeImportProjectsModal','closeModal','confirmImportSelectedProjects',
+      'closeImagePreview','closeImportProjectsModal','closeModal','closeChartPreview','confirmImportSelectedProjects',
       'deleteAttachmentInModal','deleteLog','deleteProject','deleteSavedFilter','deleteVersion',
       'dismissAutosave','dismissUndoToast','duplicateLog','exportCsv','exportMarkdown','exportPdf','filterByTag',
       'handleAttachmentDrop','jumpToLog','loadDemoData','newProjectData','openFromFile','openImagePreview','performUndo',
       'removeMeasurementRow','removeTagRow','renderCompare','renderLogs','restoreAutosave','saveCurrentFilter',
       'saveLog','saveProject','saveTagManage','saveToFile','saveVersion','searchLogs','selectProject',
       'selectVersion','setAllImportProjects','setStatFilter','showCompareModal','showLogModal','showProjectModal',
-      'showTagManageModal','showVersionModal','toggleLogExpanded','toggleSidebar','toggleTagFilterMode',
+      'showTagManageModal','showTrendChart','showVersionModal','toggleLogExpanded','toggleSidebar','toggleTagFilterMode',
       'toggleTheme','updateAttachmentSizeNote','updateImportSelectionState','importProjectsFromFile',
       'openFromFile'
     ]);
