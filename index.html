@@ -651,6 +651,24 @@
     </div>
   </div>
 
+  <div id="exportSelectModal" class="modal-overlay" data-csp-onclick="if(event.target===this)closeModal('exportSelectModal')">
+    <div class="modal wide">
+      <h3 id="exportSelectTitle">選擇要匯出的紀錄</h3>
+      <div class="import-select-toolbar">
+        <label class="inline-check" style="font-size:13px;color:var(--text)">
+          <input type="checkbox" id="exportSelectAll" data-csp-onchange="setAllExportSelection(this.checked)">
+          全部選取
+        </label>
+        <span id="exportSelectedCount" class="helper" style="margin:0"></span>
+      </div>
+      <div id="exportSelectList" class="import-project-list"></div>
+      <div class="modal-actions">
+        <button class="btn" data-csp-onclick="closeModal('exportSelectModal')">取消</button>
+        <button class="btn-primary" data-csp-onclick="confirmExportSelection()">匯出勾選紀錄</button>
+      </div>
+    </div>
+  </div>
+
   <div id="undoToast" class="undo-toast">
     <span id="undoToastText"></span>
     <button class="btn-blue" style="padding:6px 10px" data-csp-onclick="performUndo()">復原</button>
@@ -1459,7 +1477,7 @@
       if (isImageAttachment(attachment)) {
         return `
           <div class="attachment-card" data-csp-ondblclick="event.stopPropagation()">
-            <button style="display:block;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;" data-csp-onclick="event.preventDefault();openImagePreview('${encodeURIComponent(attachment.dataUrl)}', '${encodeURIComponent(attachment.name || `附件 ${index + 1}`)}')" title="放大預覽">
+            <button style="display:block;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;" data-csp-onclick="event.preventDefault();openImagePreview(${jsStringLiteral(attachment.dataUrl)}, ${jsStringLiteral(attachment.name || `附件 ${index + 1}`)})" title="放大預覽">
               <img src="${attachment.dataUrl}" alt="${name}">
             </button>
             <div class="attachment-card-footer">
@@ -1500,12 +1518,10 @@
       renderExistingAttachments(log);
       updateAttachmentSizeNote();
     }
-    function openImagePreview(encodedSrc, encodedName) {
-      const src = decodeURIComponent(encodedSrc);
-      const name = decodeURIComponent(encodedName || '');
+    function openImagePreview(src, name) {
       document.getElementById('imageLightboxImg').src = src;
-      document.getElementById('imageLightboxImg').alt = name;
-      document.getElementById('imageLightboxCaption').textContent = name;
+      document.getElementById('imageLightboxImg').alt = name || '';
+      document.getElementById('imageLightboxCaption').textContent = name || '';
       document.getElementById('imageLightbox').classList.add('active');
     }
     function closeImagePreview() {
@@ -2294,12 +2310,66 @@
       document.getElementById('sidebar').classList.toggle('open');
     }
 
-    function exportMarkdown() {
+    let pendingExportFormat = null;
+    let pendingExportLogs = [];
+    const EXPORT_FORMAT_LABELS = { markdown: 'Markdown', csv: 'CSV', pdf: 'PDF' };
+    function openExportSelectModal(format) {
       const project = getProject();
       const version = getVersion();
       if (!project || !version) return alert('請先選擇要匯出的版本。');
+      const logs = filteredLogs(version.logs);
+      if (!logs.length) return alert('沒有符合目前篩選條件的紀錄可匯出。');
+      pendingExportFormat = format;
+      pendingExportLogs = logs;
+      document.getElementById('exportSelectTitle').textContent = `選擇要匯出的紀錄（${EXPORT_FORMAT_LABELS[format] || ''}）`;
+      renderExportSelectList();
+      document.getElementById('exportSelectModal').classList.add('active');
+    }
+    function renderExportSelectList() {
+      const el = document.getElementById('exportSelectList');
+      el.innerHTML = pendingExportLogs.map((log, index) => `
+        <div class="import-project-row">
+          <input type="checkbox" class="export-select-check" value="${index}" checked data-csp-onchange="updateExportSelectionState()">
+          <div class="import-project-info">
+            <div class="import-project-title">${escapeHtml(log.title)}</div>
+            <div class="import-project-meta">${escapeHtml(log.status || 'Open')} · ${escapeHtml(log.severity || 'Medium')} · ${escapeHtml(new Date(log.timestamp).toLocaleString('zh-TW'))}</div>
+          </div>
+        </div>`).join('');
+      updateExportSelectionState();
+    }
+    function updateExportSelectionState() {
+      const checks = Array.from(document.querySelectorAll('.export-select-check'));
+      const selected = checks.filter(check => check.checked).length;
+      const selectAll = document.getElementById('exportSelectAll');
+      selectAll.checked = checks.length > 0 && selected === checks.length;
+      selectAll.indeterminate = selected > 0 && selected < checks.length;
+      document.getElementById('exportSelectedCount').textContent = `已選 ${selected} / ${checks.length} 筆紀錄`;
+    }
+    function setAllExportSelection(checked) {
+      document.querySelectorAll('.export-select-check').forEach(check => { check.checked = checked; });
+      updateExportSelectionState();
+    }
+    function confirmExportSelection() {
+      const selectedIndexes = Array.from(document.querySelectorAll('.export-select-check'))
+        .filter(check => check.checked)
+        .map(check => Number(check.value))
+        .filter(index => Number.isInteger(index));
+      if (!selectedIndexes.length) return alert('請至少選擇一筆紀錄。');
+      const logs = selectedIndexes.map(i => pendingExportLogs[i]).filter(Boolean);
+      const project = getProject();
+      const version = getVersion();
+      closeModal('exportSelectModal');
+      if (!project || !version) return;
+      if (pendingExportFormat === 'markdown') doExportMarkdown(project, version, logs);
+      else if (pendingExportFormat === 'csv') doExportCsv(project, version, logs);
+      else if (pendingExportFormat === 'pdf') doExportPdf(project, version, logs);
+    }
+    function exportMarkdown() {
+      openExportSelectModal('markdown');
+    }
+    function doExportMarkdown(project, version, logs) {
       const lines = [`# ${project.name} - ${version.name}`, '', project.code ? `專案代碼：${project.code}` : '', version.description ? `版本描述：${version.description}` : '', ''].filter(Boolean);
-      filteredLogs(version.logs).forEach(log => {
+      logs.forEach(log => {
         lines.push(`## ${log.title}`);
         lines.push(`- 狀態：${log.status}`);
         lines.push(`- 嚴重度：${log.severity}`);
@@ -2319,11 +2389,11 @@
       downloadFile(`${project.name}_${version.name}.md`, lines.join('\n'), 'text/markdown;charset=utf-8');
     }
     function exportCsv() {
-      const project = getProject();
-      const version = getVersion();
-      if (!project || !version) return alert('請先選擇要匯出的版本。');
+      openExportSelectModal('csv');
+    }
+    function doExportCsv(project, version, logs) {
       const header = ['project','version','title','status','severity','tags','firmware_version','root_cause','conditions','problem','steps','observations','measurements','conclusion','attachments','timestamp'];
-      const rows = filteredLogs(version.logs).map(log => [
+      const rows = logs.map(log => [
         project.name, version.name, log.title, log.status, log.severity, (log.tags || []).join('|'),
         log.firmwareVersion || '', log.rootCause || '',
         log.conditions, log.problem, log.steps, log.observations,
@@ -2335,11 +2405,9 @@
       downloadFile(`${project.name}_${version.name}.csv`, csv, 'text/csv;charset=utf-8');
     }
     function exportPdf() {
-      const project = getProject();
-      const version = getVersion();
-      if (!project || !version) return alert('請先選擇要匯出的版本。');
-
-      const logs = filteredLogs(version.logs);
+      openExportSelectModal('pdf');
+    }
+    function doExportPdf(project, version, logs) {
       const includeImages = document.getElementById('pdfIncludeImages')?.checked !== false;
       const now = new Date().toLocaleString('zh-TW');
       const fileTitle = `${project.name} - ${version.name}`;
@@ -2424,6 +2492,17 @@
         alert('瀏覽器阻擋了彈出視窗，請允許此頁開啟新視窗後再試一次。');
         return;
       }
+      try {
+        // The popup is a fresh window/document. Because this page's CSP
+        // ("require-trusted-types-for 'script'") is inherited by an
+        // about:blank popup, document.write() there is a Trusted-Types-guarded
+        // sink with no policy registered yet — without this it throws and the
+        // popup is left permanently blank. reportHtml is our own output built
+        // entirely through escapeHtml(), so it's safe to pass through as-is.
+        if (printWindow.trustedTypes && printWindow.trustedTypes.createPolicy) {
+          printWindow.trustedTypes.createPolicy('default', { createHTML: html => html });
+        }
+      } catch (err) { /* policy already exists or unsupported; document.write will surface any real failure */ }
       printWindow.document.open();
       printWindow.document.write(reportHtml);
       printWindow.document.close();
@@ -2481,15 +2560,15 @@
     // as data-* attributes and dispatched only through an explicit whitelist.
     const CSP_ALLOWED_ACTIONS = new Set([
       'addMeasurementRow','addTagRow','applySavedFilter','attemptCloseModal','clearFilters',
-      'closeImagePreview','closeImportProjectsModal','closeModal','closeChartPreview','confirmImportSelectedProjects',
+      'closeImagePreview','closeImportProjectsModal','closeModal','closeChartPreview','confirmExportSelection','confirmImportSelectedProjects',
       'deleteAttachmentInModal','deleteLog','deleteProject','deleteSavedFilter','deleteVersion',
       'dismissAutosave','dismissUndoToast','duplicateLog','exportCsv','exportMarkdown','exportPdf','filterByTag',
       'handleAttachmentDrop','jumpToLog','loadDemoData','newProjectData','openFromFile','openImagePreview','performUndo',
       'removeMeasurementRow','removeTagRow','renderCompare','renderLogs','restoreAutosave','saveCurrentFilter',
       'saveLog','saveProject','saveTagManage','saveToFile','saveVersion','searchLogs','selectProject',
-      'selectVersion','setAllImportProjects','setStatFilter','showCompareModal','showLogModal','showProjectModal',
+      'selectVersion','setAllExportSelection','setAllImportProjects','setStatFilter','showCompareModal','showLogModal','showProjectModal',
       'showTagManageModal','showTrendChart','showVersionModal','toggleLogExpanded','toggleSidebar','toggleTagFilterMode',
-      'toggleTheme','updateAttachmentSizeNote','updateImportSelectionState','importProjectsFromFile',
+      'toggleTheme','updateAttachmentSizeNote','updateExportSelectionState','updateImportSelectionState','importProjectsFromFile',
       'openFromFile'
     ]);
 
