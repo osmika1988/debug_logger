@@ -379,7 +379,7 @@
           </div>
           <div class="form-group" style="margin-top:12px">
             <label>排序</label>
-            <select id="sortOrder" data-csp-onchange="renderLogs()">
+            <select id="sortOrder" data-csp-onchange="applyActiveView()">
               <option value="time_desc">時間：新到舊</option>
               <option value="time_asc">時間：舊到新</option>
               <option value="severity">嚴重度優先</option>
@@ -388,7 +388,7 @@
           </div>
           <div class="form-group">
             <label>狀態</label>
-            <select id="statusFilter" data-csp-onchange="renderLogs()">
+            <select id="statusFilter" data-csp-onchange="applyActiveView()">
               <option value="">全部狀態</option>
               <option>Open</option>
               <option>Investigating</option>
@@ -398,7 +398,7 @@
           </div>
           <div class="form-group">
             <label>嚴重度</label>
-            <select id="severityFilter" data-csp-onchange="renderLogs()">
+            <select id="severityFilter" data-csp-onchange="applyActiveView()">
               <option value="">全部嚴重度</option>
               <option>Critical</option>
               <option>High</option>
@@ -409,15 +409,15 @@
           <div class="form-group">
             <label>建立日期範圍</label>
             <div class="filter-row-2">
-              <input type="date" id="dateFromFilter" data-csp-onchange="renderLogs()">
-              <input type="date" id="dateToFilter" data-csp-onchange="renderLogs()">
+              <input type="date" id="dateFromFilter" data-csp-onchange="applyActiveView()">
+              <input type="date" id="dateToFilter" data-csp-onchange="applyActiveView()">
             </div>
           </div>
           <div class="form-group">
             <label class="inline-check" style="font-size:13px;color:var(--text)">
-              <input type="checkbox" id="overdueFilter" data-csp-onchange="renderLogs()">
+              <input type="checkbox" id="overdueFilter" data-csp-onchange="applyActiveView()">
               只顯示逾期未結案（超過
-              <input type="number" id="overdueDaysInput" value="7" min="1" style="width:48px;padding:2px 4px;display:inline-block" data-csp-onchange="renderLogs()">
+              <input type="number" id="overdueDaysInput" value="7" min="1" style="width:48px;padding:2px 4px;display:inline-block" data-csp-onchange="applyActiveView()">
               天）
             </label>
           </div>
@@ -440,6 +440,8 @@
           <p>建立專案與版本後，就能開始記錄測試條件、問題、觀察、結論與附件。</p>
         </div>
 
+        <div id="statsGrid" class="stats-grid" style="display:none"></div>
+
         <div id="globalSearchView" style="display:none">
           <div class="view-head">
             <div>
@@ -458,7 +460,6 @@
             </div>
             <button class="btn-primary" data-csp-onclick="showLogModal()">+ 新增紀錄</button>
           </div>
-          <div id="statsGrid" class="stats-grid"></div>
           <div id="logTimeline" class="timeline"></div>
         </div>
       </main>
@@ -1675,7 +1676,7 @@
         if (key === 'verified') statFilter.delete('open');
         statFilter.add(key);
       }
-      renderLogs();
+      applyActiveView();
     }
     function sortLogs(logs) {
       const order = document.getElementById('sortOrder')?.value || 'time_desc';
@@ -1716,28 +1717,40 @@
     function getVersion() {
       return getProject()?.versions.find(v => v.id === currentVersionId);
     }
+    function syncStatsGridVisibility() {
+      const showStats = document.getElementById('logView').style.display !== 'none' ||
+                         document.getElementById('globalSearchView').style.display !== 'none';
+      document.getElementById('statsGrid').style.display = showStats ? '' : 'none';
+    }
     function hideLogView() {
       document.getElementById('versionSection').style.display = 'none';
       document.getElementById('emptyState').style.display = 'block';
       document.getElementById('logView').style.display = 'none';
       document.getElementById('globalSearchView').style.display = 'none';
+      syncStatsGridVisibility();
     }
     function selectProject(id) {
+      const globalToggle = document.getElementById('globalSearchToggle');
+      if (globalToggle.checked) globalToggle.checked = false;
       currentProjectId = id;
       currentVersionId = null;
       document.getElementById('globalSearchView').style.display = 'none';
       document.getElementById('emptyState').style.display = 'block';
       document.getElementById('logView').style.display = 'none';
+      syncStatsGridVisibility();
       renderProjects();
       renderVersions();
     }
     function selectVersion(id) {
+      const globalToggle = document.getElementById('globalSearchToggle');
+      if (globalToggle.checked) globalToggle.checked = false;
       currentVersionId = id;
       const project = getProject();
       const version = getVersion();
       document.getElementById('globalSearchView').style.display = 'none';
       document.getElementById('emptyState').style.display = 'none';
       document.getElementById('logView').style.display = 'block';
+      syncStatsGridVisibility();
       document.getElementById('currentVersionTitle').textContent = version.name;
       document.getElementById('currentProjectSubtitle').textContent = `${project.name}${project.code ? ` (${project.code})` : ''}`;
       renderVersions();
@@ -2057,6 +2070,7 @@
         currentVersionId = null;
         document.getElementById('emptyState').style.display = 'block';
         document.getElementById('logView').style.display = 'none';
+        syncStatsGridVisibility();
       }
       markUnsaved();
       renderVersions();
@@ -2108,16 +2122,24 @@
       searchFilter = document.getElementById('searchInput').value.trim();
       const isGlobal = document.getElementById('globalSearchToggle').checked;
       if (isGlobal) {
+        if (currentProjectId || currentVersionId) {
+          currentProjectId = null;
+          currentVersionId = null;
+          renderProjects();
+          renderVersions();
+        }
         renderGlobalSearch();
       } else {
         document.getElementById('globalSearchView').style.display = 'none';
         if (currentVersionId) {
           document.getElementById('emptyState').style.display = 'none';
           document.getElementById('logView').style.display = 'block';
+          syncStatsGridVisibility();
           renderLogs();
         } else {
           document.getElementById('emptyState').style.display = 'block';
           document.getElementById('logView').style.display = 'none';
+          syncStatsGridVisibility();
         }
       }
     }
@@ -2125,6 +2147,9 @@
       document.getElementById('emptyState').style.display = 'none';
       document.getElementById('logView').style.display = 'none';
       document.getElementById('globalSearchView').style.display = 'block';
+      syncStatsGridVisibility();
+      const allLogs = data.projects.flatMap(p => p.versions.flatMap(v => v.logs));
+      renderStats(allLogs);
       const status = document.getElementById('statusFilter').value;
       const severity = document.getElementById('severityFilter').value;
       const s = searchFilter.toLowerCase();
@@ -2143,6 +2168,13 @@
             if (dateTo && new Date(l.timestamp) > new Date(dateTo + 'T23:59:59')) return;
             if (overdue && !(['Open', 'Investigating'].includes(l.status) && (Date.now() - new Date(l.timestamp).getTime()) / 86400000 >= overdueDays)) return;
             if (s && ![l.title, l.conditions, l.problem, l.steps, l.observations, l.conclusion, l.firmwareVersion, l.rootCause].some(x => (x || '').toLowerCase().includes(s))) return;
+            if (statFilter.has('open') && !['Open', 'Investigating'].includes(l.status)) return;
+            if (statFilter.has('critical') && !['Critical', 'High'].includes(l.severity)) return;
+            if (statFilter.has('verified')) {
+              const hasVerified = allLogs.some(x => x.status === 'Verified');
+              const ok = hasVerified ? l.status === 'Verified' : ['Fixed', 'Verified'].includes(l.status);
+              if (!ok) return;
+            }
             matches.push({ log: l, project: p, version: v });
           });
         });
@@ -2609,7 +2641,7 @@
     // CSP-safe delegated event handling. The original inline handlers are stored
     // as data-* attributes and dispatched only through an explicit whitelist.
     const CSP_ALLOWED_ACTIONS = new Set([
-      'addMeasurementRow','addTagRow','applySavedFilter','attemptCloseModal','clearFilters',
+      'addMeasurementRow','addTagRow','applyActiveView','applySavedFilter','attemptCloseModal','clearFilters',
       'closeImagePreview','closeImportProjectsModal','closeModal','closeChartPreview','confirmExportSelection','confirmImportSelectedProjects',
       'deleteAttachmentInModal','deleteLog','deleteProject','deleteSavedFilter','deleteVersion',
       'dismissAutosave','dismissUndoToast','duplicateLog','exportCsv','exportMarkdown','exportPdf','filterByTag',
