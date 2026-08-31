@@ -250,6 +250,14 @@
     .checkbox-group label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
     .helper { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+    .help-content { color: var(--text); font-size: 13px; line-height: 1.7; }
+    .help-content section { margin-bottom: 20px; }
+    .help-content h4 { color: var(--strong); font-size: 14px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+    .help-content p { margin-bottom: 6px; }
+    .help-content ul { margin: 4px 0 4px 18px; }
+    .help-content li { margin-bottom: 4px; }
+    .help-content code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+    .help-content .tip { color: var(--orange); }
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
@@ -324,6 +332,7 @@
       </div>
       <div class="toolbar">
         <span id="unsavedIndicator" class="unsaved">尚未儲存</span>
+        <button id="helpBtn" class="icon-btn" data-csp-onclick="showHelpModal()" title="使用說明">❓</button>
         <button id="themeToggleBtn" class="icon-btn" data-csp-onclick="toggleTheme()" title="切換淺色/深色模式">🌙</button>
         <button id="toggleSidebarBtn" class="btn" data-csp-onclick="toggleSidebar()">篩選</button>
         <button class="btn-primary" data-csp-onclick="saveToFile()">儲存 JSON</button>
@@ -595,6 +604,94 @@
       <div class="modal-actions">
         <button class="btn" data-csp-onclick="attemptCloseModal('logModal')">取消</button>
         <button class="btn-primary" data-csp-onclick="saveLog()">儲存紀錄</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="helpModal" class="modal-overlay" data-csp-onclick="if(event.target===this)closeModal('helpModal')">
+    <div class="modal wide">
+      <h3>使用說明</h3>
+      <div class="help-content">
+        <section>
+          <h4>這是什麼</h4>
+          <p>硬體 Debug Logger 是一個純前端、離線運作的工具，用來管理硬體除錯測試的<strong>專案、版本與測試紀錄</strong>。所有資料只存在你的瀏覽器或匯出的 JSON 檔案中，不會連線到任何伺服器。</p>
+        </section>
+        <section>
+          <h4>資料結構</h4>
+          <p><code>專案</code> → <code>版本</code> → <code>測試紀錄</code>，三層管理：</p>
+          <ul>
+            <li><strong>專案</strong>：例如一款產品或一個開發案。</li>
+            <li><strong>版本</strong>：例如 EVT / DVT / PVT 階段，或某個韌體版本。</li>
+            <li><strong>測試紀錄</strong>：每一次除錯過程，包含條件、問題、步驟、觀察、量測與結論。</li>
+          </ul>
+        </section>
+        <section>
+          <h4>基本操作</h4>
+          <ul>
+            <li>左側「專案」卡片：點「+ 新增」建立專案，點清單項目切換，✎ 編輯、× 刪除。</li>
+            <li>選擇專案後會出現「版本」卡片，操作方式相同。</li>
+            <li>選擇版本後主畫面會顯示統計數字與時間軸，可點「+ 新增紀錄」開始記錄。</li>
+          </ul>
+        </section>
+        <section>
+          <h4>測試紀錄欄位</h4>
+          <ul>
+            <li>標題、狀態（Open / Investigating / Fixed / Verified）、嚴重度（Critical / High / Medium / Low）。</li>
+            <li>韌體版本／Commit、Root Cause 分類（可自訂並自動記憶）。</li>
+            <li>附件：可拖放或點擊上傳圖片／檔案，圖片會自動壓縮；點擊可放大預覽。</li>
+            <li>標籤、關聯紀錄（可標記延續、重現或取代了哪一筆，含跨版本）。</li>
+            <li>測試條件、問題描述、重現／測試步驟、觀察／量測結果、結論／對策。</li>
+            <li>結構化量測數值（項目／數值／單位），同名項目跨紀錄累積後可產生「📈 走勢圖」。</li>
+          </ul>
+        </section>
+        <section>
+          <h4>搜尋與篩選</h4>
+          <ul>
+            <li>搜尋框可全文檢索標題、條件、問題、步驟、觀察、結論。</li>
+            <li>開啟「跨專案／版本搜尋」可一次搜尋所有資料。</li>
+            <li>可依排序方式、狀態、嚴重度、日期範圍、逾期未結案天數篩選，並可點擊標籤篩選（可切換 AND / OR 模式）。</li>
+            <li>「+ 儲存目前條件」可把目前的篩選存成常用篩選 chip，之後一鍵套用。</li>
+          </ul>
+        </section>
+        <section>
+          <h4>其他功能</h4>
+          <ul>
+            <li><strong>管理標籤</strong>：新增、命名、上色、刪除標籤。</li>
+            <li><strong>比較版本</strong>：並列比較兩個版本的紀錄差異。</li>
+            <li><strong>復原</strong>：刪除專案／版本／紀錄／標籤後，畫面下方會出現復原提示，可按「復原」或 <code>Ctrl+Z</code> 還原。</li>
+            <li><strong>自動備份</strong>：編輯中會自動備份到瀏覽器本機儲存；重新開啟頁面若偵測到備份，會提示「還原備份」或「忽略」。這不取代手動存檔。</li>
+          </ul>
+        </section>
+        <section>
+          <h4>儲存、開啟與匯入資料</h4>
+          <ul>
+            <li><strong>儲存 JSON</strong>：把目前所有專案資料下載成一個 <code>.json</code> 檔，請自行妥善保存與備份。</li>
+            <li><strong>開啟 JSON</strong>：讀取先前儲存的 <code>.json</code> 檔，會取代目前畫面上的所有資料。</li>
+            <li><strong>匯入</strong>（專案卡片內）：從另一份 JSON 檔匯入指定專案並合併進目前資料，可勾選要匯入哪些專案，重複命名會提示。</li>
+          </ul>
+          <p class="tip">清除瀏覽器資料前，務必先「儲存 JSON」，否則自動備份也會一併遺失。</p>
+        </section>
+        <section>
+          <h4>匯出報告</h4>
+          <p>可匯出 <strong>Markdown</strong>、<strong>CSV</strong> 或 <strong>PDF</strong>，並可選擇匯出全部或勾選部分紀錄；匯出 PDF 時可勾選是否包含圖片附件。</p>
+        </section>
+        <section>
+          <h4>鍵盤快捷鍵</h4>
+          <ul>
+            <li><code>/</code> 快速聚焦搜尋框。</li>
+            <li><code>N</code> 於已選版本時新增紀錄。</li>
+            <li><code>Ctrl</code>/<code>Cmd</code> + <code>Enter</code> 於編輯視窗中儲存。</li>
+            <li><code>Ctrl</code>/<code>Cmd</code> + <code>Z</code> 復原上一次刪除。</li>
+            <li><code>Esc</code> 關閉目前視窗。</li>
+          </ul>
+        </section>
+        <section>
+          <h4>其他小工具</h4>
+          <p>右上角可切換淺色／深色主題、收合篩選側欄；「載入範例」可快速瀏覽功能；「新檔案」會清空目前資料重新開始（若有未儲存變更會先提示確認）。</p>
+        </section>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" data-csp-onclick="closeModal('helpModal')">關閉</button>
       </div>
     </div>
   </div>
@@ -1353,6 +1450,9 @@
       data.projects.forEach(p => p.versions.forEach(v => v.logs.forEach(l => { if (l.rootCause) set.add(l.rootCause); })));
       const el = document.getElementById('rootCauseList');
       if (el) el.innerHTML = Array.from(set).map(r => `<option value="${escapeHtml(r)}">`).join('');
+    }
+    function showHelpModal() {
+      document.getElementById('helpModal').classList.add('active');
     }
     function showTagManageModal() {
       pendingTagRows = JSON.parse(JSON.stringify(tagList()));
@@ -2648,7 +2748,7 @@
       'handleAttachmentDrop','jumpToLog','loadDemoData','newProjectData','openFromFile','openImagePreview','performUndo',
       'removeMeasurementRow','removeTagRow','renderCompare','renderLogs','restoreAutosave','saveCurrentFilter',
       'saveLog','saveProject','saveTagManage','saveToFile','saveVersion','searchLogs','selectProject',
-      'selectVersion','setAllExportSelection','setAllImportProjects','setStatFilter','showCompareModal','showLogModal','showProjectModal',
+      'selectVersion','setAllExportSelection','setAllImportProjects','setStatFilter','showCompareModal','showHelpModal','showLogModal','showProjectModal',
       'showTagManageModal','showTrendChart','showVersionModal','toggleLogExpanded','toggleSidebar','toggleTagFilterMode',
       'toggleTheme','updateAttachmentSizeNote','updateExportSelectionState','updateImportSelectionState','updateImportProjectName','importProjectsFromFile',
       'openFromFile'
