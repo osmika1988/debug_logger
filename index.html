@@ -258,6 +258,32 @@
     .help-content li { margin-bottom: 4px; }
     .help-content code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
     .help-content .tip { color: var(--orange); }
+    #tutorialLayer { position: fixed; inset: 0; z-index: 4000; pointer-events: none; }
+    .tutorial-highlight {
+      position: fixed; pointer-events: none; border: 3px solid var(--orange); border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
+    }
+    .tutorial-tooltip {
+      position: fixed; pointer-events: auto; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 8px; padding: 14px 16px; box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+      transition: top 0.2s, left 0.2s;
+    }
+    .tutorial-step-count { color: var(--orange); font-size: 11px; font-weight: 650; margin-bottom: 6px; letter-spacing: 0.02em; }
+    .tutorial-tooltip h4 { color: var(--strong); font-size: 14px; font-weight: 600; line-height: 1.5; }
+    .tutorial-actions { display: flex; justify-content: flex-end; align-items: center; margin-top: 12px; gap: 10px; }
+    .tutorial-skip-link {
+      background: none; border: none; color: var(--muted); font-size: 12px; cursor: pointer;
+      text-decoration: underline; padding: 0;
+    }
+    .tutorial-skip-link:hover { color: var(--text); }
+    .tutorial-backdrop-plain { position: fixed; inset: 0; background: rgba(0,0,0,0.6); pointer-events: auto; }
+    .tutorial-welcome-box {
+      position: fixed; pointer-events: auto; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 26px;
+      width: 380px; max-width: calc(100vw - 32px); box-shadow: 0 12px 40px rgba(0,0,0,0.55); text-align: center;
+    }
+    .tutorial-welcome-box h4 { color: var(--strong); font-size: 18px; margin-bottom: 10px; }
+    .tutorial-welcome-box p { color: var(--text); font-size: 13px; line-height: 1.7; }
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
@@ -332,6 +358,7 @@
       </div>
       <div class="toolbar">
         <span id="unsavedIndicator" class="unsaved">尚未儲存</span>
+        <button id="tutorialBtn" class="icon-btn" data-csp-onclick="startTutorial()" title="新手導覽">🎓</button>
         <button id="helpBtn" class="icon-btn" data-csp-onclick="showHelpModal()" title="使用說明">❓</button>
         <button id="themeToggleBtn" class="icon-btn" data-csp-onclick="toggleTheme()" title="切換淺色/深色模式">🌙</button>
         <button id="toggleSidebarBtn" class="btn" data-csp-onclick="toggleSidebar()">篩選</button>
@@ -364,7 +391,7 @@
             <h3>專案</h3>
             <div style="display:flex;gap:6px;align-items:center;">
               <button class="btn" data-csp-onclick="document.getElementById('importProjectsFile').click()">匯入</button>
-              <button class="btn-primary" data-csp-onclick="showProjectModal()">+ 新增</button>
+              <button id="addProjectBtn" class="btn-primary" data-csp-onclick="showProjectModal()">+ 新增</button>
               <input type="file" id="importProjectsFile" accept=".json" style="display:none" data-csp-onchange="importProjectsFromFile(this)">
             </div>
           </div>
@@ -374,7 +401,7 @@
         <div id="versionSection" class="card" style="display:none">
           <div class="card-header">
             <h3>版本</h3>
-            <button class="btn-blue" data-csp-onclick="showVersionModal()">+ 新增</button>
+            <button id="addVersionBtn" class="btn-blue" data-csp-onclick="showVersionModal()">+ 新增</button>
           </div>
           <div id="versionList"></div>
         </div>
@@ -467,7 +494,7 @@
               <h2 id="currentVersionTitle"></h2>
               <p id="currentProjectSubtitle"></p>
             </div>
-            <button class="btn-primary" data-csp-onclick="showLogModal()">+ 新增紀錄</button>
+            <button id="addLogBtn" class="btn-primary" data-csp-onclick="showLogModal()">+ 新增紀錄</button>
           </div>
           <div id="logTimeline" class="timeline"></div>
         </div>
@@ -788,6 +815,8 @@
       <div id="chartLightboxBody"></div>
     </div>
   </div>
+
+  <div id="tutorialLayer"></div>
 
   <script nonce="VUaYmJgJj3n50tDKMFFA9Kg38-nFmM8L">
     // ===== Trusted Types + Offline Sanitizer (single-file offline build) =====
@@ -1454,6 +1483,139 @@
     function showHelpModal() {
       document.getElementById('helpModal').classList.add('active');
     }
+
+    // ===== 新手導覽 (guided tutorial) =====
+    const TUTORIAL_AUTOSHOW_KEY = 'hwdebug_tutorial_autoshow_v1';
+    const TUTORIAL_STEPS = [
+      { key: 'welcome' },
+      { key: 'addProject', target: () => document.getElementById('addProjectBtn'),
+        label: '步驟 1／6', text: '點擊「+ 新增」建立你的第一個專案。' },
+      { key: 'fillProject', target: () => document.querySelector('#projectModal.active .modal'),
+        label: '步驟 2／6', text: '輸入專案名稱，然後按下「儲存」。' },
+      { key: 'addVersion', target: () => document.getElementById('addVersionBtn'),
+        label: '步驟 3／6', text: '點擊「+ 新增」建立第一個版本。' },
+      { key: 'fillVersion', target: () => document.querySelector('#versionModal.active .modal'),
+        label: '步驟 4／6', text: '輸入版本名稱，然後按下「儲存」。' },
+      { key: 'addLog', target: () => document.getElementById('addLogBtn'),
+        label: '步驟 5／6', text: '點擊「+ 新增紀錄」建立第一筆測試紀錄。' },
+      { key: 'fillLog', target: () => document.querySelector('#logModal.active .modal'),
+        label: '步驟 6／6', text: '輸入標題與問題描述等內容，然後按下「儲存紀錄」。' },
+      { key: 'done' }
+    ];
+    let tutorialActive = false;
+    let tutorialStep = null;
+    let tutorialListenersBound = false;
+    function tutorialAutoShowEnabled() {
+      try { return localStorage.getItem(TUTORIAL_AUTOSHOW_KEY) !== '0'; } catch (err) { return true; }
+    }
+    function setTutorialAutoShow(enabled) {
+      try { localStorage.setItem(TUTORIAL_AUTOSHOW_KEY, enabled ? '1' : '0'); } catch (err) { /* ignore */ }
+    }
+    function maybeAutoStartTutorial() {
+      if (!tutorialAutoShowEnabled()) return;
+      if (data.projects.length > 0) return;
+      if (document.getElementById('draftBanner').classList.contains('show')) return;
+      startTutorial();
+    }
+    function startTutorial() {
+      tutorialActive = true;
+      if (!tutorialListenersBound) {
+        window.addEventListener('resize', renderTutorialUI);
+        window.addEventListener('scroll', renderTutorialUI, true);
+        tutorialListenersBound = true;
+      }
+      tutorialGoToStep('welcome');
+    }
+    function skipTutorial() {
+      setTutorialAutoShow(false);
+      endTutorial();
+    }
+    function finishTutorial() {
+      endTutorial();
+    }
+    function endTutorial() {
+      tutorialActive = false;
+      tutorialStep = null;
+      document.getElementById('tutorialLayer').innerHTML = '';
+    }
+    function tutorialGoToStep(key) {
+      tutorialStep = key;
+      renderTutorialUI();
+    }
+    function tutorialHandleModalCancelled(modalId) {
+      if (!tutorialActive) return;
+      if (modalId === 'projectModal' && tutorialStep === 'fillProject') tutorialGoToStep('addProject');
+      else if (modalId === 'versionModal' && tutorialStep === 'fillVersion') tutorialGoToStep('addVersion');
+      else if (modalId === 'logModal' && tutorialStep === 'fillLog') tutorialGoToStep('addLog');
+    }
+    function renderTutorialUI() {
+      const layer = document.getElementById('tutorialLayer');
+      if (!tutorialActive || !tutorialStep) { layer.innerHTML = ''; return; }
+      const step = TUTORIAL_STEPS.find(s => s.key === tutorialStep);
+      if (!step) { layer.innerHTML = ''; return; }
+      if (step.key === 'welcome' || step.key === 'done') {
+        layer.innerHTML = renderTutorialCenterBox(step);
+        return;
+      }
+      const target = step.target();
+      if (!target) {
+        layer.innerHTML = '';
+        requestAnimationFrame(() => { if (tutorialActive && tutorialStep === step.key) renderTutorialUI(); });
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      layer.innerHTML = renderTutorialHighlight(rect) + renderTutorialTooltip(rect, step);
+    }
+    function renderTutorialHighlight(rect) {
+      const pad = 6;
+      const top = Math.max(rect.top - pad, 4);
+      const left = Math.max(rect.left - pad, 4);
+      const width = rect.width + pad * 2;
+      const height = rect.height + pad * 2;
+      return `<div class="tutorial-highlight" style="top:${top}px;left:${left}px;width:${width}px;height:${height}px"></div>`;
+    }
+    function renderTutorialTooltip(rect, step) {
+      const tipWidth = 300;
+      const margin = 14;
+      const estHeight = 130;
+      let top = rect.bottom + margin;
+      if (top + estHeight > window.innerHeight) top = Math.max(rect.top - margin - estHeight, 8);
+      let left = rect.left;
+      if (left + tipWidth + margin > window.innerWidth) left = window.innerWidth - tipWidth - margin;
+      if (left < margin) left = margin;
+      return `
+        <div class="tutorial-tooltip" style="top:${top}px;left:${left}px;width:${tipWidth}px">
+          <div class="tutorial-step-count">${escapeHtml(step.label)}</div>
+          <h4>${escapeHtml(step.text)}</h4>
+          <div class="tutorial-actions">
+            <button class="tutorial-skip-link" data-csp-onclick="skipTutorial()">略過教學</button>
+          </div>
+        </div>`;
+    }
+    function renderTutorialCenterBox(step) {
+      if (step.key === 'welcome') {
+        return `
+          <div class="tutorial-backdrop-plain"></div>
+          <div class="tutorial-welcome-box">
+            <h4>👋 新手導覽</h4>
+            <p>歡迎使用硬體 Debug Logger！讓我們一步步建立你的第一筆測試紀錄：建立專案 → 建立版本 → 新增紀錄。</p>
+            <div class="tutorial-actions" style="justify-content:center">
+              <button class="btn" data-csp-onclick="skipTutorial()">略過教學</button>
+              <button class="btn-primary" data-csp-onclick="tutorialGoToStep('addProject')">開始導覽</button>
+            </div>
+          </div>`;
+      }
+      return `
+        <div class="tutorial-backdrop-plain"></div>
+        <div class="tutorial-welcome-box">
+          <h4>🎉 完成第一筆紀錄！</h4>
+          <p>你已經學會建立專案、版本與測試紀錄的基本流程。之後可以用相同方式持續累積紀錄，或點擊左上角「？」查看完整使用說明。</p>
+          <div class="tutorial-actions" style="justify-content:center">
+            <button class="btn-primary" data-csp-onclick="finishTutorial()">完成</button>
+          </div>
+        </div>`;
+    }
+
     function showTagManageModal() {
       pendingTagRows = JSON.parse(JSON.stringify(tagList()));
       renderTagManageRows();
@@ -1866,6 +2028,7 @@
       document.getElementById('projectDesc').value = p?.description || '';
       modalDirty = false;
       document.getElementById('projectModal').classList.add('active');
+      if (tutorialActive && tutorialStep === 'addProject' && id === null) tutorialGoToStep('fillProject');
     }
     function showVersionModal(id = null) {
       editingVersionId = id;
@@ -1875,6 +2038,7 @@
       document.getElementById('versionDesc').value = v?.description || '';
       modalDirty = false;
       document.getElementById('versionModal').classList.add('active');
+      if (tutorialActive && tutorialStep === 'addVersion' && id === null) tutorialGoToStep('fillVersion');
     }
     function showLogModal(id = null) {
       editingLogId = id;
@@ -1902,6 +2066,7 @@
       renderModalTagChecks(log);
       modalDirty = false;
       document.getElementById('logModal').classList.add('active');
+      if (tutorialActive && tutorialStep === 'addLog' && id === null) tutorialGoToStep('fillLog');
     }
     function renderMeasurementRows() {
       document.getElementById('measurementRows').innerHTML = pendingMeasurementRows.map((m, i) => `
@@ -1967,6 +2132,7 @@
       }
       modalDirty = false;
       closeModal(id);
+      tutorialHandleModalCancelled(id);
     }
     document.addEventListener('input', e => {
       if (e.target.closest('#projectModal, #versionModal, #logModal')) modalDirty = true;
@@ -1978,6 +2144,8 @@
     function saveProject() {
       const name = document.getElementById('projectName').value.trim();
       if (!name) return alert('請輸入專案名稱。');
+      const wasNew = !editingProjectId;
+      let newProjectId = null;
       if (editingProjectId) {
         const p = data.projects.find(x => x.id === editingProjectId);
         Object.assign(p, {
@@ -1986,8 +2154,9 @@
           description: document.getElementById('projectDesc').value.trim()
         });
       } else {
+        newProjectId = uid('proj');
         data.projects.push({
-          id: uid('proj'),
+          id: newProjectId,
           name,
           code: document.getElementById('projectCode').value.trim(),
           description: document.getElementById('projectDesc').value.trim(),
@@ -1998,22 +2167,33 @@
       closeModal('projectModal');
       renderProjects();
       if (currentVersionId) selectVersion(currentVersionId);
+      if (tutorialActive && tutorialStep === 'fillProject' && wasNew) {
+        selectProject(newProjectId);
+        tutorialGoToStep('addVersion');
+      }
     }
     function saveVersion() {
       const name = document.getElementById('versionName').value.trim();
       if (!name) return alert('請輸入版本名稱。');
       const project = getProject();
       if (!project) return alert('請先選擇專案。');
+      const wasNew = !editingVersionId;
+      let newVersionId = null;
       if (editingVersionId) {
         const v = project.versions.find(x => x.id === editingVersionId);
         Object.assign(v, { name, description: document.getElementById('versionDesc').value.trim() });
       } else {
-        project.versions.push({ id: uid('ver'), name, description: document.getElementById('versionDesc').value.trim(), logs: [] });
+        newVersionId = uid('ver');
+        project.versions.push({ id: newVersionId, name, description: document.getElementById('versionDesc').value.trim(), logs: [] });
       }
       markUnsaved();
       closeModal('versionModal');
       renderVersions();
       if (currentVersionId) selectVersion(currentVersionId);
+      if (tutorialActive && tutorialStep === 'fillVersion' && wasNew) {
+        selectVersion(newVersionId);
+        tutorialGoToStep('addLog');
+      }
     }
     async function saveLog() {
       const title = document.getElementById('logTitle').value.trim();
@@ -2022,6 +2202,7 @@
       if (!problem) return alert('請輸入問題描述。');
       const version = getVersion();
       if (!version) return alert('請先選擇版本。');
+      const wasNew = !editingLogId;
       const oldLog = editingLogId ? version.logs.find(x => x.id === editingLogId) : null;
       const newAttachments = await readAttachments(document.getElementById('logAttachments').files);
       const keptAttachments = (oldLog?.attachments || []).filter((_, index) => !removedAttachmentIndexes.has(index));
@@ -2055,6 +2236,9 @@
       renderLogs();
       renderVersions();
       populateRootCauseList();
+      if (tutorialActive && tutorialStep === 'fillLog' && wasNew) {
+        tutorialGoToStep('done');
+      }
     }
     function readAttachments(fileList) {
       const files = Array.from(fileList || []);
@@ -2725,7 +2909,7 @@
       }
       const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
       const anyModalOpen = document.querySelector('.modal-overlay.active');
-      if (isTyping || anyModalOpen) return;
+      if (isTyping || anyModalOpen || (tutorialActive && (tutorialStep === 'welcome' || tutorialStep === 'done'))) return;
       if (e.key === '/') {
         e.preventDefault();
         document.getElementById('searchInput').focus();
@@ -2751,7 +2935,7 @@
       'selectVersion','setAllExportSelection','setAllImportProjects','setStatFilter','showCompareModal','showHelpModal','showLogModal','showProjectModal',
       'showTagManageModal','showTrendChart','showVersionModal','toggleLogExpanded','toggleSidebar','toggleTagFilterMode',
       'toggleTheme','updateAttachmentSizeNote','updateExportSelectionState','updateImportSelectionState','updateImportProjectName','importProjectsFromFile',
-      'openFromFile'
+      'openFromFile','startTutorial','skipTutorial','finishTutorial','tutorialGoToStep'
     ]);
 
     function cspSplitArgs(text) {
@@ -2850,6 +3034,7 @@
     renderSavedFilters();
     checkAutosaveOnLoad();
     renderAll();
+    maybeAutoStartTutorial();
   </script>
 </body>
 </html>
