@@ -1574,15 +1574,39 @@
       const height = rect.height + pad * 2;
       return `<div class="tutorial-highlight" style="top:${top}px;left:${left}px;width:${width}px;height:${height}px"></div>`;
     }
+    function tutorialClamp(value, min, max) {
+      if (max < min) return min;
+      return Math.min(Math.max(value, min), max);
+    }
     function renderTutorialTooltip(rect, step) {
-      const tipWidth = 300;
-      const margin = 14;
+      const tipWidth = 280;
+      const margin = 12;
       const estHeight = 130;
-      let top = rect.bottom + margin;
-      if (top + estHeight > window.innerHeight) top = Math.max(rect.top - margin - estHeight, 8);
-      let left = rect.left;
-      if (left + tipWidth + margin > window.innerWidth) left = window.innerWidth - tipWidth - margin;
-      if (left < margin) left = margin;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const spaceBelow = vh - rect.bottom;
+      const spaceAbove = rect.top;
+      const spaceRight = vw - rect.right;
+      const spaceLeft = rect.left;
+      let top, left;
+      if (spaceBelow >= estHeight + margin) {
+        top = rect.bottom + margin;
+        left = tutorialClamp(rect.left, margin, vw - tipWidth - margin);
+      } else if (spaceAbove >= estHeight + margin) {
+        top = rect.top - margin - estHeight;
+        left = tutorialClamp(rect.left, margin, vw - tipWidth - margin);
+      } else if (spaceRight >= tipWidth + margin) {
+        top = tutorialClamp(rect.top, margin, vh - estHeight - margin);
+        left = rect.right + margin;
+      } else if (spaceLeft >= tipWidth + margin) {
+        top = tutorialClamp(rect.top, margin, vh - estHeight - margin);
+        left = rect.left - margin - tipWidth;
+      } else {
+        // No side has enough room (e.g. a very tall/wide modal on a small viewport) -
+        // pin to a fixed corner rather than overlapping the target's own content.
+        top = vh - estHeight - margin;
+        left = vw - tipWidth - margin;
+      }
       return `
         <div class="tutorial-tooltip" style="top:${top}px;left:${left}px;width:${tipWidth}px">
           <div class="tutorial-step-count">${escapeHtml(step.label)}</div>
