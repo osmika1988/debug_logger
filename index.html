@@ -1737,7 +1737,7 @@
                     <span class="severity" style="color:${severityColors[log.severity] || '#8b949e'}">${escapeHtml(log.severity)}</span>
                     ${tagsHtml}
                   </div>
-                  <div class="log-meta">${dateStr}${metaExtra ? ' · ' + escapeHtml(metaExtra) : ''}</div>
+                  <div class="log-meta">${dateStr}${metaExtra ? ' · ' + metaExtra : ''}</div>
                 </div>
                 <div class="item-actions" data-csp-ondblclick="event.stopPropagation()">
                   <button class="icon-btn" data-csp-onclick="event.stopPropagation();showLogModal('${log.id}')" title="編輯">✎</button>
@@ -1787,8 +1787,8 @@
     }
     function logMetaExtra(log) {
       const parts = [];
-      if (log.firmwareVersion) parts.push(`FW: ${log.firmwareVersion}`);
-      if (log.rootCause) parts.push(`Root Cause: ${log.rootCause}`);
+      if (log.firmwareVersion) parts.push(`FW: ${escapeHtml(log.firmwareVersion)}`);
+      if (log.rootCause) parts.push(`<span style="color:#3fb950">Root Cause: ${escapeHtml(log.rootCause)}</span>`);
       return parts.join(' · ');
     }
     function toggleLogExpanded(logId) {
@@ -2511,7 +2511,7 @@
                     <span class="severity" style="color:${severityColors[log.severity] || '#8b949e'}">${escapeHtml(log.severity)}</span>
                     ${tagsHtml}
                   </div>
-                  <div class="log-meta">${escapeHtml(project.name)} / ${escapeHtml(version.name)} · ${dateStr}${metaExtra ? ' · ' + escapeHtml(metaExtra) : ''}</div>
+                  <div class="log-meta">${escapeHtml(project.name)} / ${escapeHtml(version.name)} · ${dateStr}${metaExtra ? ' · ' + metaExtra : ''}</div>
                 </div>
               </div>
               ${sectionHtml('問題描述', log.problem, '#ff7b72')}
